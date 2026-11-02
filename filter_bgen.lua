@@ -104,6 +104,37 @@ local function render_poem(el)
   return pandoc.RawBlock("fb2", "<poem>" .. table.concat(poem_parts) .. "</poem>")
 end
 
+-- .q и .qq: замена Span на русские кавычки.
+-- .q -> «…» (внешние ёлочки)
+-- .qq -> „…“ (внутренние лапки)
+-- Вложенность не отслеживается: автор сам выбирает класс по уровню.
+local function Span(el)
+  if FORMAT ~= "fb2" then
+    return nil
+  end
+
+  local classes = {}
+  for _, c in ipairs(el.classes) do
+    classes[c] = true
+  end
+
+  local open_q, close_q
+  if classes["q"] then
+    open_q, close_q = "«", "»"
+  elseif classes["qq"] then
+    open_q, close_q = "„", "“"
+  else
+    return nil
+  end
+
+  local result = { pandoc.Str(open_q) }
+  for _, inline in ipairs(el.content) do
+    table.insert(result, inline)
+  end
+  table.insert(result, pandoc.Str(close_q))
+  return result
+end
+
 local function Div(el)
   if FORMAT ~= "fb2" then
     return nil
@@ -147,5 +178,5 @@ local function Div(el)
   return nil
 end
 
-return { { Div = Div } }
+return { { Div = Div, Span = Span } }
 
