@@ -385,8 +385,8 @@ def build(project_path: Path, only: str | None = None) -> list[tuple[str, Path, 
     if not formats:
         raise BgenError("не включено ни одного формата (проверьте config.yaml)")
 
-    output_dir = project_path / config.get("output_dir", "build")
-    output_dir.mkdir(exist_ok=True)
+    output_dir = project_path / config.get("output_dir", "output")
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     results: list[tuple[str, Path, list[str]]] = []
     for fmt in formats:
