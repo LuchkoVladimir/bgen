@@ -15,8 +15,15 @@ try:
 except ImportError:
     raise ImportError("Требуется PyYAML. Установите: pip install pyyaml")
 
+try:
+    from lxml import etree as lxml_etree
+except ImportError:
+    raise ImportError("Требуется lxml. Установите: pip install lxml")
+
 FB2_NS = "http://www.gribuser.ru/xml/fictionbook/2.0"
 BGEN_DIR = Path(__file__).resolve().parent
+SCHEMAS_DIR = BGEN_DIR / "schemas"
+FB2_XSD = SCHEMAS_DIR / "FictionBook.xsd"
 
 KNOWN_FORMATS = {"fb2"}
 
@@ -75,7 +82,6 @@ def read_annotation(project_path: Path) -> str | None:
 
 
 def iter_text_files(project_path: Path) -> list[Path]:
-    """Возвращает md-файлы из project_path/body/, отсортированные по пути."""
     body_dir = project_path / "body"
     if not body_dir.exists():
         raise BgenError(f"директория {body_dir} не найдена")
@@ -83,42 +89,6 @@ def iter_text_files(project_path: Path) -> list[Path]:
     if not files:
         raise BgenError(f"в {body_dir} не найдено .md файлов")
     return files
-
-
-# ============================================================
-# Предобработка Markdown: ::: {.class} -> маркеры
-# ============================================================
-
-# Захватываем строку с классами целиком: ".epigraph .book" и т.п.
-_DIV_RE = re.compile(r"(?ms)^:::\s*\{\s*([^}]*)\s*\}\s*\n(.*?)^:::\s*$")
-
-
-def _preprocess_md(files: list[Path]) -> tuple[str, dict[str, tuple[list[str], str]]]:
-    """Склеивает файлы, заменяет ::: {.class .class} блоки на маркеры.
-
-    Возвращает (склеенный_текст, маркеры), где маркеры — dict:
-    marker_id -> (classes, content).
-    classes — список классов без ведущей точки (["epigraph", "book"]).
-    """
-    parts = [f.read_text(encoding="utf-8") for f in files]
-    text = "\n\n".join(parts)
-
-    markers: dict[str, tuple[list[str], str]] = {}
-    counter = [0]
-
-    def replace(m: re.Match) -> str:
-        counter[0] += 1
-        marker_id = f"BGENMARKER{counter[0]:08d}ENDMARKER"
-        classes = [
-            c.lstrip(".").strip()
-            for c in m.group(1).split()
-            if c.strip()
-        ]
-        markers[marker_id] = (classes, m.group(2).strip())
-        return f"\n\n{marker_id}\n\n"
-
-    text = _DIV_RE.sub(replace, text)
-    return text, markers
 
 
 # ============================================================
@@ -153,7 +123,8 @@ def _build_fb2_metadata(project_path: Path, config: dict, tmpdir: Path) -> tuple
     return meta_path, warnings
 
 
-def _run_pandoc_fb2(md_file: Path, meta_path: Path, output: Path, resource_path: Path) -> list[str]:
+def _run_pandoc_fb2(md_files: list[Path], meta_path: Path, output: Path,
+                    resource_path: Path) -> list[str]:
     cmd = [
         "pandoc",
         "--from", "markdown",
@@ -162,10 +133,14 @@ def _run_pandoc_fb2(md_file: Path, meta_path: Path, output: Path, resource_path:
         "--metadata-file", str(meta_path),
         "--resource-path", str(resource_path),
     ]
+    filter_path = BGEN_DIR / "filter_bgen.lua"
+    if filter_path.exists():
+        cmd.extend(["--lua-filter", str(filter_path)])
     abbrevs = BGEN_DIR / "abbrevs.txt"
     if abbrevs.exists():
         cmd.extend(["--abbreviations", str(abbrevs)])
-    cmd.extend(["-o", str(output), str(md_file)])
+    cmd.extend(["-o", str(output)])
+    cmd.extend(str(p) for p in md_files)
 
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
@@ -180,140 +155,27 @@ def _run_pandoc_fb2(md_file: Path, meta_path: Path, output: Path, resource_path:
 # Постобработка FB2
 # ============================================================
 
-def _build_epigraph(content: str) -> ET.Element:
-    epigraph = ET.Element(f"{{{FB2_NS}}}epigraph")
-    parts = re.split(r"\n\s*\n", content)
-    author = None
-    if len(parts) > 1 and parts[-1].strip().startswith("—"):
-        author = parts[-1].strip().lstrip("—").strip()
-        parts = parts[:-1]
-    for para in parts:
-        para = para.strip()
-        if para:
-            p = ET.SubElement(epigraph, f"{{{FB2_NS}}}p")
-            p.text = para
-    if author:
-        ta = ET.SubElement(epigraph, f"{{{FB2_NS}}}text-author")
-        ta.text = author
-    return epigraph
+def _remove_empty_emphasis(root: ET.Element) -> None:
+    """Известный баг Pandoc FB2-writer: после таблиц добавляется <p><emphasis /></p>.
 
-
-def _build_poem(content: str) -> ET.Element:
-    poem = ET.Element(f"{{{FB2_NS}}}poem")
-    stanzas = re.split(r"\n\s*\n", content.strip())
-    for stanza_text in stanzas:
-        stanza_text = stanza_text.strip()
-        if not stanza_text:
-            continue
-        stanza = ET.SubElement(poem, f"{{{FB2_NS}}}stanza")
-        for line in stanza_text.split("\n"):
-            line = line.strip()
-            if line:
-                v = ET.SubElement(stanza, f"{{{FB2_NS}}}v")
-                v.text = line
-    return poem
-
-
-def _build_asterism() -> ET.Element:
-    p = ET.Element(f"{{{FB2_NS}}}p")
-    p.text = "* * *"
-    return p
-
-
-def _build_marker_replacement(classes: list[str], content: str, warnings: list[str]) -> ET.Element | None:
-    # "epigraph" — основной класс, определяет тип элемента.
-    # "book" — уточнение (эпиграф книги), обрабатывается в _postprocess_fb2.
-    if "epigraph" in classes:
-        return _build_epigraph(content)
-    if "poem" in classes:
-        return _build_poem(content)
-    if "asterism" in classes:
-        return _build_asterism()
-    warnings.append(f"неизвестный класс маркера: {' '.join(classes)}")
-    return None
-
-
-def _replace_markers(
-    root: ET.Element,
-    markers: dict[str, tuple[list[str], str]],
-    warnings: list[str],
-) -> None:
-    for parent in list(root.iter()):
-        i = 0
-        while i < len(parent):
-            child = parent[i]
-            if child.tag == f"{{{FB2_NS}}}p":
-                text = (child.text or "").strip()
-                if text in markers:
-                    classes, content = markers[text]
-                    replacement = _build_marker_replacement(classes, content, warnings)
-                    if replacement is not None:
-                        # Помечаем эпиграф книги атрибутом, чтобы потом
-                        # отличить его от эпиграфа главы.
-                        if replacement.tag == f"{{{FB2_NS}}}epigraph" and "book" in classes:
-                            replacement.set("_bgen_book", "1")
-                        parent.remove(child)
-                        parent.insert(i, replacement)
-                        i += 1
-                        continue
-            i += 1
-
-
-def _move_book_epigraph_to_body(root: ET.Element, warnings: list[str]) -> None:
-    """Перемещает <epigraph _bgen_book="1"> из безымянной секции в <body>.
-
-    Pandoc оборачивает эпиграф книги в <section> без <title>.
-    По схеме FB2 эпиграф книги должен быть прямым потомком <body>.
+    Исправляем до XSD-валидации, чтобы известный баг не маскировал другие ошибки.
     """
-    ns = {"fb": FB2_NS}
-    body = root.find("fb:body", ns)
-    if body is None:
-        return
-
-    for section in list(body.findall("fb:section", ns)):
-        # Ищем эпиграф, помеченный как книжный
-        book_ep = None
-        for ep in section.findall("fb:epigraph", ns):
-            if ep.get("_bgen_book") == "1":
-                book_ep = ep
-                break
-        if book_ep is None:
-            continue
-
-        # Если в секции только этот эпиграф (и, возможно, empty-line) —
-        # секция бессмысленна, эпиграф выносим, секцию удаляем.
-        meaningful = [
-            c for c in section
-            if not (c.tag == f"{{{FB2_NS}}}epigraph" and c is book_ep)
-            and c.tag != f"{{{FB2_NS}}}empty-line"
-        ]
-        if meaningful:
-            warnings.append(
-                "эпиграф книги оказался внутри секции с содержимым; "
-                "перемещён в <body>, но проверьте структуру"
-            )
-
-        # Убираем временный атрибут
-        book_ep.attrib.pop("_bgen_book", None)
-
-        # Вставляем эпиграф в body на место секции
-        idx = list(body).index(section)
-        section.remove(book_ep)
-        body.insert(idx, book_ep)
-
-        # Если секция опустела — удаляем
-        if len(section) == 0:
-            body.remove(section)
+    ns = FB2_NS
+    for p in list(root.iter(f"{{{ns}}}p")):
+        emph = p.find(f"{{{ns}}}emphasis")
+        if emph is not None and not (emph.text or "").strip() and len(emph) == 0:
+            if not (p.text or "").strip() and len(p) == 1:
+                for parent in root.iter():
+                    if p in list(parent):
+                        parent.remove(p)
+                        break
 
 
 def _postprocess_fb2(
     fb2_path: Path,
     config: dict,
     annotation_text: str | None,
-    markers: dict[str, tuple[str, str]],
 ) -> list[str]:
-    # Регистрируем FB2 namespace как default (без префикса ns0).
-    # Это глобальная настройка ElementTree, влияет на все последующие write().
     ET.register_namespace("", FB2_NS)
 
     tree = ET.parse(fb2_path)
@@ -327,19 +189,8 @@ def _postprocess_fb2(
     fb2_cfg = config.get("fb2") or {}
     warnings: list[str] = []
 
-    # Маркеры (:epigraph, :poem, :asterism)
-    _replace_markers(root, markers, warnings)
-    # Эпиграф книги: вынести из безымянной секции в <body>
-    _move_book_epigraph_to_body(root, warnings)
-    # Pandoc FB2-writer добавляет пустой <p><emphasis /></p> после таблиц.
-    for p in list(root.iter(f"{{{FB2_NS}}}p")):
-        emph = p.find(f"{{{FB2_NS}}}emphasis")
-        if emph is not None and not (emph.text or "").strip() and len(emph) == 0:
-            if not (p.text or "").strip() and len(p) == 1:
-                for parent in root.iter():
-                    if p in list(parent):
-                        parent.remove(p)
-                        break
+    # Известный баг Pandoc: пустой <emphasis /> после таблиц.
+    _remove_empty_emphasis(root)
 
     # Жанры
     for g in title_info.findall("fb:genre", ns):
@@ -386,6 +237,45 @@ def _postprocess_fb2(
     return warnings
 
 
+# ============================================================
+# Валидация FB2 по XSD
+# ============================================================
+
+def _validate_fb2(fb2_path: Path) -> list[str]:
+    """Валидация FB2 по XSD. Возвращает список сообщений об ошибках.
+
+    Если XSD-файл не найден — BgenError: без схемы валидация бессмысленна.
+    """
+    if not FB2_XSD.exists():
+        raise BgenError(
+            f"XSD-схема FB2 не найдена: {FB2_XSD}. "
+            f"Положите FictionBook.xsd и связанные схемы в {SCHEMAS_DIR}"
+        )
+
+    try:
+        schema_doc = lxml_etree.parse(str(FB2_XSD))
+        schema = lxml_etree.XMLSchema(schema_doc)
+    except lxml_etree.XMLSchemaParseError as e:
+        raise BgenError(f"не удалось загрузить XSD-схему {FB2_XSD}: {e}")
+
+    try:
+        doc = lxml_etree.parse(str(fb2_path))
+    except lxml_etree.XMLSyntaxError as e:
+        return [f"FB2 не является well-formed XML: {e}"]
+
+    if schema.validate(doc):
+        return []
+
+    errors = []
+    for err in schema.error_log:
+        errors.append(f"XSD: строка {err.line}, столбец {err.column}: {err.message}")
+    return errors
+
+
+# ============================================================
+# Высокоуровневые команды
+# ============================================================
+
 def _build_one_fb2(
     project_path: Path,
     config: dict,
@@ -397,24 +287,23 @@ def _build_one_fb2(
     output_path = output_dir / output_name
 
     md_files = iter_text_files(project_path)
-    concatenated, markers = _preprocess_md(md_files)
 
     warnings: list[str] = []
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
-        md_path = tmpdir / "book.md"
-        md_path.write_text(concatenated, encoding="utf-8")
         meta_path, meta_warnings = _build_fb2_metadata(project_path, config, tmpdir)
         warnings.extend(meta_warnings)
-        warnings.extend(_run_pandoc_fb2(md_path, meta_path, output_path, project_path))
+        warnings.extend(_run_pandoc_fb2(md_files, meta_path, output_path, project_path))
 
-    warnings.extend(_postprocess_fb2(output_path, config, annotation_text, markers))
+    warnings.extend(_postprocess_fb2(output_path, config, annotation_text))
+
+    xsd_errors = _validate_fb2(output_path)
+    if xsd_errors:
+        error_text = "\n".join(xsd_errors)
+        raise BgenError(f"FB2 не прошёл валидацию по XSD:\n{error_text}")
+
     return output_path, warnings
 
-
-# ============================================================
-# Высокоуровневые команды
-# ============================================================
 
 def build(project_path: Path, only: str | None = None) -> list[tuple[str, Path, list[str]]]:
     project_path = _validate_project_path(project_path)
@@ -470,7 +359,7 @@ def _analyze(files: list[Path]) -> dict:
 
 def stat(project_path: Path) -> dict | None:
     project_path = _validate_project_path(project_path)
-    load_config(project_path)  # проверяем, что config.yaml есть
+    load_config(project_path)
     files = iter_text_files(project_path)
     return _analyze(files)
 
