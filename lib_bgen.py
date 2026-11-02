@@ -2,6 +2,7 @@
 """lib_bgen: библиотека bgen (конфигурация, структура, сборка, статистика)."""
 from __future__ import annotations
 
+import copy
 import re
 import subprocess
 import tempfile
@@ -26,6 +27,13 @@ SCHEMAS_DIR = BGEN_DIR / "schemas"
 FB2_XSD = SCHEMAS_DIR / "FictionBook.xsd"
 
 KNOWN_FORMATS = {"fb2"}
+
+# Порядок элементов по схеме FB2 (TitleInfo, DocumentInfo).
+_TITLE_INFO_ORDER = [
+    "genre", "author", "book-title", "annotation", "keywords",
+    "date", "coverpage", "lang", "src-lang", "translator", "sequence",
+]
+_DOC_INFO_ORDER = ["author", "program-used", "date", "id", "version"]
 
 
 class BgenError(Exception):
@@ -156,10 +164,7 @@ def _run_pandoc_fb2(md_files: list[Path], meta_path: Path, output: Path,
 # ============================================================
 
 def _remove_empty_emphasis(root: ET.Element) -> None:
-    """Известный баг Pandoc FB2-writer: после таблиц добавляется <p><emphasis /></p>.
-
-    Исправляем до XSD-валидации, чтобы известный баг не маскировал другие ошибки.
-    """
+    """Известный баг Pandoc FB2-writer: после таблиц добавляется <p><emphasis /></p>."""
     ns = FB2_NS
     for p in list(root.iter(f"{{{ns}}}p")):
         emph = p.find(f"{{{ns}}}emphasis")
@@ -169,6 +174,63 @@ def _remove_empty_emphasis(root: ET.Element) -> None:
                     if p in list(parent):
                         parent.remove(p)
                         break
+
+
+def _sort_children_by_order(parent: ET.Element, order: list[str]) -> None:
+    """Переставляет дочерние элементы parent в порядке order.
+
+    Элементы, которых нет в order, идут в конец, сохраняя относительный порядок.
+    """
+    ns = FB2_NS
+    children = list(parent)
+    order_idx = {f"{{{ns}}}{name}": i for i, name in enumerate(order)}
+    children.sort(key=lambda el: order_idx.get(el.tag, len(order)))
+    for child in list(parent):
+        parent.remove(child)
+    for child in children:
+        parent.append(child)
+
+
+def _move_book_epigraph_to_body(root: ET.Element) -> None:
+    """Перемещает <epigraph> из безымянной секции в <body>.
+
+    Pandoc оборачивает эпиграф книги (RawBlock до первого заголовка)
+    в <section>, что нарушает схему FB2: эпиграф книги должен быть
+    прямым потомком <body>.
+    """
+    ns = {"fb": FB2_NS}
+    body = root.find("fb:body", ns)
+    if body is None:
+        return
+
+    for section in list(body.findall("fb:section", ns)):
+        # Секция без title, содержащая только epigraph (и, возможно, empty-line)
+        title = section.find("fb:title", ns)
+        if title is not None:
+            continue
+
+        epigraphs = section.findall("fb:epigraph", ns)
+        if not epigraphs:
+            continue
+
+        # Проверяем, что в секции нет ничего, кроме эпиграфов и empty-line
+        meaningful = [
+            c for c in section
+            if c.tag not in (f"{{{FB2_NS}}}epigraph", f"{{{FB2_NS}}}empty-line")
+        ]
+        if meaningful:
+            continue  # это не «секция-обёртка» для эпиграфа книги
+
+        # Перемещаем эпиграфы в body перед секцией
+        idx = list(body).index(section)
+        for ep in epigraphs:
+            section.remove(ep)
+            body.insert(idx, ep)
+            idx += 1
+
+        # Удаляем опустевшую секцию
+        if len(section) == 0:
+            body.remove(section)
 
 
 def _postprocess_fb2(
@@ -191,6 +253,9 @@ def _postprocess_fb2(
 
     # Известный баг Pandoc: пустой <emphasis /> после таблиц.
     _remove_empty_emphasis(root)
+
+    # Известный баг Pandoc: оборачивание эпиграфа книги в <section>
+    _move_book_epigraph_to_body(root)
 
     # Жанры
     for g in title_info.findall("fb:genre", ns):
@@ -216,6 +281,12 @@ def _postprocess_fb2(
     if doc_info is None:
         doc_info = ET.SubElement(description, f"{{{FB2_NS}}}document-info")
 
+    # document-info требует <author>. Копируем из title-info, если своего нет.
+    if doc_info.find("fb:author", ns) is None:
+        title_author = title_info.find("fb:author", ns)
+        if title_author is not None:
+            doc_info.insert(0, copy.deepcopy(title_author))
+
     if doc_info.find("fb:id", ns) is None:
         ET.SubElement(doc_info, f"{{{FB2_NS}}}id").text = "bgen-generated"
     if doc_info.find("fb:version", ns) is None:
@@ -225,6 +296,18 @@ def _postprocess_fb2(
     for old in doc_info.findall("fb:date", ns):
         doc_info.remove(old)
     ET.SubElement(doc_info, f"{{{FB2_NS}}}date", {"value": date_val}).text = date_val
+
+    # Pandoc генерирует xlink:type="inlineImageType"/"imageType",
+    # схема FB2 требует fixed value "simple".
+    XLINK_NS = "http://www.w3.org/1999/xlink"
+    for el in root.iter():
+        xlink_type = el.get(f"{{{XLINK_NS}}}type")
+        if xlink_type is not None and xlink_type != "simple":
+            el.set(f"{{{XLINK_NS}}}type", "simple")
+
+    # Приводим порядок в соответствие со схемой FB2 (после всех вставок)
+    _sort_children_by_order(title_info, _TITLE_INFO_ORDER)
+    _sort_children_by_order(doc_info, _DOC_INFO_ORDER)
 
     # Косметика
     if fb2_cfg.get("pretty_print", False):
