@@ -79,16 +79,6 @@ def _resolve_formats(config: dict, only: str | None) -> list[str]:
 # Структура проекта
 # ============================================================
 
-def read_annotation(project_path: Path) -> str | None:
-    path = project_path / "_annotation.md"
-    if not path.exists():
-        return None
-    text = path.read_text(encoding="utf-8").strip()
-    if not text:
-        return None
-    return re.sub(r"^#+\s*", "", text, flags=re.MULTILINE)
-
-
 def iter_text_files(project_path: Path) -> list[Path]:
     body_dir = project_path / "body"
     if not body_dir.exists():
@@ -191,52 +181,62 @@ def _sort_children_by_order(parent: ET.Element, order: list[str]) -> None:
         parent.append(child)
 
 
-def _move_book_epigraph_to_body(root: ET.Element) -> None:
-    """Перемещает <epigraph> из безымянной секции в <body>.
+def _fix_book_level_elements(root: ET.Element) -> None:
+    """За один проход по <body>: переносит <annotation> и <epigraph>
+    из безымянных секций в <title-info> и <body> соответственно.
 
-    Pandoc оборачивает эпиграф книги (RawBlock до первого заголовка)
-    в <section>, что нарушает схему FB2: эпиграф книги должен быть
-    прямым потомком <body>.
+    Безымянная секция (без <title>) — признак элемента книжного уровня:
+    Pandoc оборачивает эпиграф/аннотацию книги, стоящие до первого заголовка,
+    в <section> без <title>. Если секция с <title> — это эпиграф/аннотация
+    главы, их не трогаем (схема FB2 это разрешает).
     """
     ns = {"fb": FB2_NS}
     body = root.find("fb:body", ns)
     if body is None:
         return
+    title_info = root.find(".//fb:title-info", ns)
+    if title_info is None:
+        return
+
+    # Собираем аннотацию книги из <annotation> в безымянных секциях.
+    book_annotation_children = None
 
     for section in list(body.findall("fb:section", ns)):
-        # Секция без title, содержащая только epigraph (и, возможно, empty-line)
-        title = section.find("fb:title", ns)
-        if title is not None:
+        # Секция с <title> — это глава, не трогаем.
+        if section.find("fb:title", ns) is not None:
             continue
 
-        epigraphs = section.findall("fb:epigraph", ns)
-        if not epigraphs:
-            continue
+        # Аннотация книги
+        annotation_el = section.find("fb:annotation", ns)
+        if annotation_el is not None:
+            if book_annotation_children is None:
+                book_annotation_children = list(annotation_el)
+            else:
+                book_annotation_children.extend(list(annotation_el))
+            section.remove(annotation_el)
 
-        # Проверяем, что в секции нет ничего, кроме эпиграфов и empty-line
-        meaningful = [
-            c for c in section
-            if c.tag not in (f"{{{FB2_NS}}}epigraph", f"{{{FB2_NS}}}empty-line")
-        ]
-        if meaningful:
-            continue  # это не «секция-обёртка» для эпиграфа книги
+        # Эпиграф книги (может быть несколько)
+        for epigraph_el in list(section.findall("fb:epigraph", ns)):
+            idx = list(body).index(section)
+            section.remove(epigraph_el)
+            body.insert(idx, epigraph_el)
 
-        # Перемещаем эпиграфы в body перед секцией
-        idx = list(body).index(section)
-        for ep in epigraphs:
-            section.remove(ep)
-            body.insert(idx, ep)
-            idx += 1
-
-        # Удаляем опустевшую секцию
+        # Если секция опустела — удаляем
         if len(section) == 0:
             body.remove(section)
+
+    # Вставляем аннотацию книги в <title-info>
+    if book_annotation_children is not None:
+        for old in title_info.findall("fb:annotation", ns):
+            title_info.remove(old)
+        ann = ET.SubElement(title_info, f"{{{FB2_NS}}}annotation")
+        for child in book_annotation_children:
+            ann.append(child)
 
 
 def _postprocess_fb2(
     fb2_path: Path,
     config: dict,
-    annotation_text: str | None,
 ) -> list[str]:
     ET.register_namespace("", FB2_NS)
 
@@ -254,24 +254,14 @@ def _postprocess_fb2(
     # Известный баг Pandoc: пустой <emphasis /> после таблиц.
     _remove_empty_emphasis(root)
 
-    # Известный баг Pandoc: оборачивание эпиграфа книги в <section>
-    _move_book_epigraph_to_body(root)
+    # Известный баг Pandoc: оборачивание эпиграфа/аннотации книги в <section>
+    _fix_book_level_elements(root)
 
     # Жанры
     for g in title_info.findall("fb:genre", ns):
         title_info.remove(g)
     for g in fb2_cfg.get("genres") or ["unrecognised"]:
         ET.SubElement(title_info, f"{{{FB2_NS}}}genre").text = g
-
-    # Аннотация
-    for old in title_info.findall("fb:annotation", ns):
-        title_info.remove(old)
-    if annotation_text:
-        ann = ET.SubElement(title_info, f"{{{FB2_NS}}}annotation")
-        for para in re.split(r"\n\s*\n", annotation_text):
-            para = para.strip()
-            if para:
-                ET.SubElement(ann, f"{{{FB2_NS}}}p").text = para
 
     # document-info
     description = root.find(".//fb:description", ns)
@@ -362,7 +352,6 @@ def _validate_fb2(fb2_path: Path) -> list[str]:
 def _build_one_fb2(
     project_path: Path,
     config: dict,
-    annotation_text: str | None,
     output_dir: Path,
 ) -> tuple[Path, list[str]]:
     fb2_cfg = config.get("fb2") or {}
@@ -378,7 +367,7 @@ def _build_one_fb2(
         warnings.extend(meta_warnings)
         warnings.extend(_run_pandoc_fb2(md_files, meta_path, output_path, project_path))
 
-    warnings.extend(_postprocess_fb2(output_path, config, annotation_text))
+    warnings.extend(_postprocess_fb2(output_path, config))
 
     xsd_errors = _validate_fb2(output_path)
     if xsd_errors:
@@ -398,13 +387,12 @@ def build(project_path: Path, only: str | None = None) -> list[tuple[str, Path, 
 
     output_dir = project_path / config.get("output_dir", "build")
     output_dir.mkdir(exist_ok=True)
-    annotation_text = read_annotation(project_path)
 
     results: list[tuple[str, Path, list[str]]] = []
     for fmt in formats:
         if fmt == "fb2":
             output_path, warnings = _build_one_fb2(
-                project_path, config, annotation_text, output_dir
+                project_path, config, output_dir
             )
             results.append((fmt, output_path, warnings))
         else:
