@@ -1,33 +1,107 @@
 -- filter_bgen.lua
 -- Превращает fenced div'ы bgen в FB2-теги для writer'а fb2.
--- Для остальных форматов поведение можно будет добавить позже.
 
-local function render_blocks(blocks)
-  -- Рекурсивно сериализуем Blocks в строку XML.
-  -- Нам нужны только те элементы, которые уже стали RawBlock или простыми блоками.
-  local parts = {}
-  for _, block in ipairs(blocks) do
-    if block.t == "RawBlock" then
-      table.insert(parts, block.text)
-    elseif block.t == "Para" or block.t == "Plain" then
-      -- Простой параграф: оборачиваем в <p>
-      local text = pandoc.utils.stringify(block)
-      table.insert(parts, "<p>" .. text .. "</p>")
-    elseif block.t == "BlockQuote" then
-      -- Цитата внутри эпиграфа: <cite>
-      local cite_parts = {}
-      for _, inner in ipairs(block.content) do
-        if inner.t == "Para" or inner.t == "Plain" then
-          table.insert(cite_parts, "<p>" .. pandoc.utils.stringify(inner) .. "</p>")
-        end
-      end
-      table.insert(parts, "<cite>" .. table.concat(cite_parts) .. "</cite>")
+-- Разворачивает верхнеуровневую <section> внутри контейнера (epigraph/annotation):
+-- запоминает содержимое section, кладёт его на место родителя.
+local function unwrap_top_section(body)
+  local sec_start, sec_end = body:find("<section[^>]*>")
+  if not sec_start then
+    return body
+  end
+
+  local depth = 1
+  local pos = sec_end + 1
+  local close_s
+  while depth > 0 and pos <= #body do
+    local open_s = body:find("<section[^>]*>", pos)
+    local close_tmp = body:find("</section>", pos)
+    if not close_tmp then break end
+    if open_s and open_s < close_tmp then
+      depth = depth + 1
+      pos = open_s + 1
     else
-      -- Остальное (списки, заголовки и т.п.) внутри эпиграфа не поддерживаем
-      -- и просто пропускаем, чтобы не сломать XML.
+      depth = depth - 1
+      if depth == 0 then
+        close_s = close_tmp
+        break
+      end
+      pos = close_tmp + 1
     end
   end
-  return table.concat(parts)
+
+  if not close_s then
+    return body
+  end
+
+  return body:sub(sec_end + 1, close_s - 1)
+end
+
+-- Сериализует один блок в FB2-строку и разворачивает верхнеуровневую секцию.
+local function render_one_block(block)
+  local doc = pandoc.Pandoc({ block }, {})
+  local fb2_text = pandoc.write(doc, "fb2")
+  local body = fb2_text:match("<body>(.-)</body>") or fb2_text
+  return unwrap_top_section(body)
+end
+
+-- Сериализует список блоков, обрабатывая каждый отдельно.
+local function render_blocks(blocks)
+  local parts = {}
+  for _, block in ipairs(blocks) do
+    local rendered = render_one_block(block)
+    if rendered ~= "" then
+      table.insert(parts, rendered)
+    end
+  end
+  return table.concat(parts, "\n")
+end
+
+-- Сериализует .poem в <poem><stanza><v>...
+-- Каждый Para/Plain внутри .poem — строфа; SoftBreak/LineBreak — границы строк.
+-- LineBlock (если автор использовал | в Markdown) — тоже строфа.
+local function render_poem(el)
+  local poem_parts = {}
+  local stanza_lines = {}
+
+  local function flush_stanza()
+    if #stanza_lines == 0 then return end
+    local stanza_xml = {}
+    for _, l in ipairs(stanza_lines) do
+      table.insert(stanza_xml, "<v>" .. l .. "</v>")
+    end
+    table.insert(poem_parts, "<stanza>" .. table.concat(stanza_xml) .. "</stanza>")
+    stanza_lines = {}
+  end
+
+  for _, block in ipairs(el.content) do
+    if block.t == "Para" or block.t == "Plain" then
+      local line = {}
+      for _, inline in ipairs(block.content) do
+        if inline.t == "SoftBreak" or inline.t == "LineBreak" then
+          if #line > 0 then
+            table.insert(stanza_lines, pandoc.utils.stringify(line))
+            line = {}
+          end
+        else
+          table.insert(line, inline)
+        end
+      end
+      if #line > 0 then
+        table.insert(stanza_lines, pandoc.utils.stringify(line))
+      end
+      flush_stanza()
+    elseif block.t == "LineBlock" then
+      for _, line_inlines in ipairs(block.content) do
+        table.insert(stanza_lines, pandoc.utils.stringify(line_inlines))
+      end
+      flush_stanza()
+    end
+    -- Прочие блоки (RawBlock от вложенных Div и т.п.) пропускаем:
+    -- они уже обработаны walk_block и не являются строками стиха.
+  end
+  flush_stanza()
+
+  return pandoc.RawBlock("fb2", "<poem>" .. table.concat(poem_parts) .. "</poem>")
 end
 
 local function Div(el)
@@ -46,9 +120,15 @@ local function Div(el)
     return pandoc.RawBlock("fb2", "<text-author>" .. text .. "</text-author>")
   end
 
+  -- .annotation: аннотация секции
+  if classes["annotation"] then
+    local processed = pandoc.walk_block(el, { Div = Div })
+    local inner = render_blocks(processed.content)
+    return pandoc.RawBlock("fb2", "<annotation>" .. inner .. "</annotation>")
+  end
+
   -- .epigraph: эпиграф (книги или главы)
   if classes["epigraph"] then
-    -- Сначала обрабатываем вложенные div'ы (например, .text-author)
     local processed = pandoc.walk_block(el, { Div = Div })
     local inner = render_blocks(processed.content)
     return pandoc.RawBlock("fb2", "<epigraph>" .. inner .. "</epigraph>")
@@ -56,26 +136,7 @@ local function Div(el)
 
   -- .poem: стихотворение
   if classes["poem"] then
-    local poem_parts = {}
-    -- Содержимое .poem: строки разделены пустыми строками на строфы
-    local raw = pandoc.utils.stringify(el.content)
-    -- Простейший разбор: строки как <v>, пустые строки разделяют строфы
-    local stanza = {}
-    for line in raw:gmatch("[^\n]+") do
-      line = line:match("^%s*(.-)%s*$")
-      if line ~= "" then
-        table.insert(stanza, "<v>" .. line .. "</v>")
-      else
-        if #stanza > 0 then
-          table.insert(poem_parts, "<stanza>" .. table.concat(stanza) .. "</stanza>")
-          stanza = {}
-        end
-      end
-    end
-    if #stanza > 0 then
-      table.insert(poem_parts, "<stanza>" .. table.concat(stanza) .. "</stanza>")
-    end
-    return pandoc.RawBlock("fb2", "<poem>" .. table.concat(poem_parts) .. "</poem>")
+    return render_poem(el)
   end
 
   -- .asterism: сильный разделитель
