@@ -40,7 +40,9 @@ fb2:
   genres:
     - sf
     - sf_fantasy
-
+    - name: detective
+      match: 20
+#
   # Дата документа в формате ISO (YYYY-MM-DD).
   # Если пусто или отсутствует — ставится текущая дата.
   date: ""

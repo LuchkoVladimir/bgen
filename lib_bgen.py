@@ -407,7 +407,27 @@ def _postprocess_fb2(
     for g in title_info.findall("fb:genre", ns):
         title_info.remove(g)
     for g in fb2_cfg.get("genres") or ["unrecognised"]:
-        ET.SubElement(title_info, f"{{{FB2_NS}}}genre").text = g
+        if isinstance(g, dict):
+            name = g.get("name")
+            if not isinstance(name, str) or not name:
+                raise BgenError(
+                    f"fb2.genres: 'name' должен быть непустой строкой, получено {name!r}"
+                )
+            match = g.get("match")
+            if match is not None:
+                if not (type(match) is int) or not (1 <= match <= 100):
+                    raise BgenError(
+                        f"fb2.genres: 'match' должен быть целым числом 1..100, получено {match!r}"
+                    )
+            genre_el = ET.SubElement(title_info, f"{{{FB2_NS}}}genre")
+            genre_el.text = name
+            match = g.get("match")
+            if match is not None:
+                genre_el.set("match", str(match))
+        elif isinstance(g, str):
+            ET.SubElement(title_info, f"{{{FB2_NS}}}genre").text = g
+        else:
+            raise BgenError(f"fb2.genres: ожидается строка или словарь, получено {type(g).__name__}")
 
     # document-info
     description = root.find(".//fb:description", ns)
