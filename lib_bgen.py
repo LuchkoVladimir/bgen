@@ -50,7 +50,7 @@ class BgenError(Exception):
 # Конфигурация
 # ============================================================
 
-def load_config(project_path: Path) -> dict:
+def _load_config(project_path: Path) -> dict:
     config_path = project_path / "config.yaml"
     if not config_path.exists():
         raise BgenError(f"{config_path} не найден")
@@ -104,7 +104,7 @@ def _make_book_id(config: dict) -> str:
 # Структура проекта
 # ============================================================
 
-def iter_text_files(project_path: Path) -> list[Path]:
+def _iter_text_files(project_path: Path) -> list[Path]:
     body_dir = project_path / "body"
     if not body_dir.exists():
         raise BgenError(f"директория {body_dir} не найдена")
@@ -519,7 +519,7 @@ def _build_one_fb2(
     output_name = fb2_cfg.get("output_name", "book.fb2")
     output_path = output_dir / output_name
 
-    md_files = iter_text_files(project_path)
+    md_files = _iter_text_files(project_path)
 
     warnings: list[str] = []
     with tempfile.TemporaryDirectory() as tmp:
@@ -540,7 +540,7 @@ def _build_one_fb2(
 
 def build(project_path: Path, only: str | None = None) -> list[tuple[str, Path, list[str]]]:
     project_path = _validate_project_path(project_path)
-    config = load_config(project_path)
+    config = _load_config(project_path)
 
     formats = _resolve_formats(config, only)
     if not formats:
@@ -591,8 +591,8 @@ def _analyze(files: list[Path]) -> dict:
 
 def stat(project_path: Path) -> dict | None:
     project_path = _validate_project_path(project_path)
-    load_config(project_path)
-    files = iter_text_files(project_path)
+    _load_config(project_path)
+    files = _iter_text_files(project_path)
     return _analyze(files)
 
 
