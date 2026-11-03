@@ -6,6 +6,7 @@ import copy
 import re
 import subprocess
 import tempfile
+import uuid
 import xml.etree.ElementTree as ET
 from collections import Counter
 from datetime import date as date_cls
@@ -73,6 +74,25 @@ def _resolve_formats(config: dict, only: str | None) -> list[str]:
         if section.get("enabled", False):
             formats.append(fmt)
     return formats
+
+
+def _make_book_id(config: dict) -> str:
+    """Возвращает id книги: явный из fb2.id или UUID5 от title+author+lang."""
+    fb2_cfg = config.get("fb2") or {}
+    explicit = fb2_cfg.get("id")
+    if explicit:
+        return str(explicit)
+
+    meta = config.get("metadata") or {}
+    title = meta.get("title", "")
+    authors = meta.get("author") or []
+    if isinstance(authors, list):
+        author_str = "|".join(str(a) for a in authors)
+    else:
+        author_str = str(authors)
+    lang = meta.get("lang", "ru")
+    key = f"{title}|{author_str}|{lang}"
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, key))
 
 
 # ============================================================
@@ -277,8 +297,12 @@ def _postprocess_fb2(
         if title_author is not None:
             doc_info.insert(0, copy.deepcopy(title_author))
 
-    if doc_info.find("fb:id", ns) is None:
-        ET.SubElement(doc_info, f"{{{FB2_NS}}}id").text = "bgen-generated"
+    book_id = _make_book_id(config)
+    id_el = doc_info.find("fb:id", ns)
+    if id_el is None:
+        id_el = ET.SubElement(doc_info, f"{{{FB2_NS}}}id")
+    id_el.text = book_id
+
     if doc_info.find("fb:version", ns) is None:
         ET.SubElement(doc_info, f"{{{FB2_NS}}}version").text = "1.0"
 
