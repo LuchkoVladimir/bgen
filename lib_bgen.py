@@ -137,9 +137,6 @@ def _build_fb2_metadata(project_path: Path, config: dict, tmpdir: Path) -> tuple
             warnings.append(f"обложка не найдена, пропускаем: {cover_path}")
             meta.pop("cover-image")
 
-    meta.pop("genre", None)
-    meta.pop("genres", None)
-
     meta_path = tmpdir / "metadata.yaml"
     with open(meta_path, "w", encoding="utf-8") as f:
         yaml.dump(meta, f, allow_unicode=True, default_flow_style=False)
