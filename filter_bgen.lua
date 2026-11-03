@@ -3,8 +3,10 @@
 
 -- Разворачивает верхнеуровневую <section> внутри контейнера (epigraph/annotation):
 -- запоминает содержимое section, кладёт его на место родителя.
-local function unwrap_top_section(body)
-  local sec_start, sec_end = body:find("<section[^>]*>")
+local function unwrap_top_tag(body, tag)
+  local open_pat = "<" .. tag .. "[^>]*>"
+  local close_pat = "</" .. tag .. ">"
+  local sec_start, sec_end = body:find(open_pat)
   if not sec_start then
     return body
   end
@@ -13,8 +15,8 @@ local function unwrap_top_section(body)
   local pos = sec_end + 1
   local close_s
   while depth > 0 and pos <= #body do
-    local open_s = body:find("<section[^>]*>", pos)
-    local close_tmp = body:find("</section>", pos)
+    local open_s = body:find(open_pat, pos)
+    local close_tmp = body:find(close_pat, pos)
     if not close_tmp then break end
     if open_s and open_s < close_tmp then
       depth = depth + 1
@@ -41,7 +43,7 @@ local function render_one_block(block)
   local doc = pandoc.Pandoc({ block }, {})
   local fb2_text = pandoc.write(doc, "fb2")
   local body = fb2_text:match("<body>(.-)</body>") or fb2_text
-  return unwrap_top_section(body)
+  return unwrap_top_tag(body, "section")
 end
 
 -- Сериализует список блоков, обрабатывая каждый отдельно.
@@ -157,6 +159,14 @@ local function Div(el)
     local processed = pandoc.walk_block(el, { Div = Div })
     local inner = render_blocks(processed.content)
     return pandoc.RawBlock("fb2", "<epigraph>" .. inner .. "</epigraph>")
+  end
+
+  -- .subtitle: смысловой разделитель внутри секции
+  if classes["subtitle"] then
+    local processed = pandoc.walk_block(el, { Div = Div })
+    local inner = render_blocks(processed.content)
+    inner = unwrap_top_tag(inner, "p")
+    return pandoc.RawBlock("fb2", "<subtitle>" .. inner .. "</subtitle>")
   end
 
   -- .asterism: сильный разделитель
