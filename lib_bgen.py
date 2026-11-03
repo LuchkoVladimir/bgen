@@ -572,6 +572,9 @@ def _strip_markdown(text: str) -> str:
     text = re.sub(r"`[^`]*`", "", text)
     text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
     text = re.sub(r"[*_~]", "", text)
+    text = re.sub(r"^:::\s*\{[^}]*\}\s*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^:::\s*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"\[([^\]]*)\]\{[^}]*\}", r"\1", text)  # Span
     return text
 
 
