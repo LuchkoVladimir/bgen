@@ -58,54 +58,6 @@ local function render_blocks(blocks)
   return table.concat(parts, "\n")
 end
 
--- Сериализует .poem в <poem><stanza><v>...
--- Каждый Para/Plain внутри .poem — строфа; SoftBreak/LineBreak — границы строк.
--- LineBlock (если автор использовал | в Markdown) — тоже строфа.
-local function render_poem(el)
-  local poem_parts = {}
-  local stanza_lines = {}
-
-  local function flush_stanza()
-    if #stanza_lines == 0 then return end
-    local stanza_xml = {}
-    for _, l in ipairs(stanza_lines) do
-      table.insert(stanza_xml, "<v>" .. l .. "</v>")
-    end
-    table.insert(poem_parts, "<stanza>" .. table.concat(stanza_xml) .. "</stanza>")
-    stanza_lines = {}
-  end
-
-  for _, block in ipairs(el.content) do
-    if block.t == "Para" or block.t == "Plain" then
-      local line = {}
-      for _, inline in ipairs(block.content) do
-        if inline.t == "SoftBreak" or inline.t == "LineBreak" then
-          if #line > 0 then
-            table.insert(stanza_lines, pandoc.utils.stringify(line))
-            line = {}
-          end
-        else
-          table.insert(line, inline)
-        end
-      end
-      if #line > 0 then
-        table.insert(stanza_lines, pandoc.utils.stringify(line))
-      end
-      flush_stanza()
-    elseif block.t == "LineBlock" then
-      for _, line_inlines in ipairs(block.content) do
-        table.insert(stanza_lines, pandoc.utils.stringify(line_inlines))
-      end
-      flush_stanza()
-    end
-    -- Прочие блоки (RawBlock от вложенных Div и т.п.) пропускаем:
-    -- они уже обработаны walk_block и не являются строками стиха.
-  end
-  flush_stanza()
-
-  return pandoc.RawBlock("fb2", "<poem>" .. table.concat(poem_parts) .. "</poem>")
-end
-
 -- .q и .qq: замена Span на русские кавычки.
 -- .q -> «…» (внешние ёлочки)
 -- .qq -> „…“ (внутренние лапки)
@@ -178,11 +130,6 @@ local function Div(el)
   if classes["text-author"] then
     local text = pandoc.utils.stringify(el.content)
     return pandoc.RawBlock("fb2", "<text-author>" .. text .. "</text-author>")
-  end
-
-  -- .poem: стихотворение
-  if classes["poem"] then
-    return render_poem(el)
   end
 
   return nil
