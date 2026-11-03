@@ -49,6 +49,18 @@ fb2:
   #   "любая строка" — использовать как есть.
   id: ""
 
+  # Режим работы с <description>:
+  #   auto     — bgen генерирует description из config.yaml/body/ и упорядочивает.
+  #   template — fb2_description.xml задаёт структуру; bgen заполняет
+  #              СУЩЕСТВУЮЩИЕ элементы шаблона значениями из config.yaml/body/.
+  #              Новые элементы не добавляются, порядок не меняется.
+  #   override — fb2_description.xml заменяет description целиком.
+  #              Маргинальный режим: значения config.yaml для description
+  #              (author, book-title, genre, date, annotation, coverpage, lang)
+  #              игнорируются. config.yaml всё равно должен содержать
+  #              title/author для Pandoc, иначе сборка упадёт.
+  description: auto
+
   # Иерархическое форматирование XML с отступами (косметика).
   # Требует Python 3.9+ (ET.indent).
   pretty_print: true

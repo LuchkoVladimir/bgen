@@ -36,6 +36,11 @@ _TITLE_INFO_ORDER = [
 ]
 _DOC_INFO_ORDER = ["author", "program-used", "date", "id", "version"]
 
+# Поля, которые Pandoc генерирует в <document-info> служебно.
+# Удаляются из сгенерированного description перед применением шаблона.
+# Список может быть расширен, если Pandoc начнёт генерировать новые
+# служебные поля (см. changelog Pandoc FB2-writer).
+_PANDOC_OPTIONAL_TAGS = {"program-used", "history", "src-url", "src-ocr"}
 
 class BgenError(Exception):
     """Ошибка bgen, пригодная для показа пользователю."""
@@ -254,9 +259,133 @@ def _fix_book_level_elements(root: ET.Element) -> None:
             ann.append(child)
 
 
+def _clean_pandoc_optional(root: ET.Element) -> None:
+    """Удаляет из <document-info> поля, которые Pandoc генерирует служебно
+    и которые не должны попадать в шаблон (program-used, history и т.п.)."""
+    ns = FB2_NS
+    doc_info = root.find(f".//{{{ns}}}document-info")
+    if doc_info is None:
+        return
+    for tag in _PANDOC_OPTIONAL_TAGS:
+        for el in doc_info.findall(f"{{{ns}}}{tag}"):
+            doc_info.remove(el)
+
+
+def _apply_custom_description(
+    root: ET.Element,
+    project_path: Path,
+    config: dict,
+    generated_title_info: ET.Element,
+    generated_doc_info: ET.Element,
+) -> list[str]:
+    """Применяет fb2_description.xml в режиме template или override.
+
+    auto     — ничего не делает.
+    template — обходит ШАБЛОН; для каждого элемента, который есть и в шаблоне,
+               и в сгенерированном description, заменяет содержимое шаблона
+               на сгенерированное. Новых элементов не добавляет.
+               Служебные поля Pandoc (см. _PANDOC_OPTIONAL_TAGS) уже удалены
+               из сгенерированного description до вызова.
+    override — заменяет <description> целиком на содержимое файла.
+    """
+    fb2_cfg = config.get("fb2") or {}
+    mode = fb2_cfg.get("description", "auto")
+    if mode == "auto":
+        return []
+
+    if mode not in ("template", "override"):
+        raise BgenError(f"неизвестный режим fb2.description: {mode}")
+
+    desc_path = project_path / "fb2_description.xml"
+    if not desc_path.exists():
+        raise BgenError(
+            f"fb2.description: {mode}, но файл не найден: {desc_path}"
+        )
+
+    try:
+        custom_tree = ET.parse(desc_path)
+    except ET.ParseError as e:
+        raise BgenError(f"не удалось разобрать {desc_path}: {e}")
+
+    custom_root = custom_tree.getroot()
+    if custom_root.tag != f"{{{FB2_NS}}}description":
+        found = None
+        for el in custom_tree.iter():
+            if el.tag == "description" or el.tag.endswith("}description"):
+                found = el
+                break
+        if found is None:
+            raise BgenError(f"в {desc_path} не найден <description>")
+        custom_root = found
+
+    warnings: list[str] = []
+
+    if mode == "override":
+        old_desc = root.find(f"{{{FB2_NS}}}description")
+        if old_desc is not None:
+            idx = list(root).index(old_desc)
+            root.remove(old_desc)
+            root.insert(idx, custom_root)
+        else:
+            root.insert(0, custom_root)
+        warnings.append(
+            "fb2.description=override: значения config.yaml для description "
+            "(author, book-title, genre, date, annotation, coverpage, lang) "
+            "игнорируются"
+        )
+        return warnings
+
+    # template: обходим шаблон (dst), заполняем из сгенерированного (src).
+    ns = FB2_NS
+
+    def merge_by_template(src_parent: ET.Element, dst_parent: ET.Element) -> None:
+        """Для каждого тега, который есть в dst_parent И в src_parent,
+        удаляет все элементы с этим тегом в dst_parent и вставляет все
+        элементы с этим тегом из src_parent на место первого удалённого.
+        Если тега нет в src — оставляет как в шаблоне (не трогает).
+        Если тега нет в dst — не добавляет (шаблон решает, что будет).
+        """
+        # Уникальные теги в порядке появления в dst
+        seen = []
+        for child in dst_parent:
+            if child.tag not in seen:
+                seen.append(child.tag)
+
+        for tag in seen:
+            src_children = [c for c in src_parent if c.tag == tag]
+            if not src_children:
+                continue  # bgen не генерирует это поле — оставляем из шаблона
+            dst_children = dst_parent.findall(tag)
+            first_idx = list(dst_parent).index(dst_children[0])
+            for c in dst_children:
+                dst_parent.remove(c)
+            for offset, src_child in enumerate(src_children):
+                dst_parent.insert(first_idx + offset, copy.deepcopy(src_child))
+
+    custom_ti = custom_root.find(f"{{{ns}}}title-info")
+    if custom_ti is not None:
+        merge_by_template(generated_title_info, custom_ti)
+
+    custom_di = custom_root.find(f"{{{ns}}}document-info")
+    if custom_di is not None:
+        merge_by_template(generated_doc_info, custom_di)
+
+    # Заменяем description в root
+    old_desc = root.find(f"{{{FB2_NS}}}description")
+    if old_desc is not None:
+        idx = list(root).index(old_desc)
+        root.remove(old_desc)
+        root.insert(idx, custom_root)
+    else:
+        root.insert(0, custom_root)
+
+    return warnings
+
+
 def _postprocess_fb2(
     fb2_path: Path,
     config: dict,
+    project_path: Path,
 ) -> list[str]:
     ET.register_namespace("", FB2_NS)
 
@@ -322,6 +451,14 @@ def _postprocess_fb2(
     # Приводим порядок в соответствие со схемой FB2 (после всех вставок)
     _sort_children_by_order(title_info, _TITLE_INFO_ORDER)
     _sort_children_by_order(doc_info, _DOC_INFO_ORDER)
+
+    # Убираем служебные поля Pandoc из сгенерированного description
+    _clean_pandoc_optional(root)
+
+    # fb2_description.xml (template / override)
+    warnings.extend(_apply_custom_description(
+        root, project_path, config, title_info, doc_info
+    ))
 
     # Косметика
     if fb2_cfg.get("pretty_print", False):
@@ -391,7 +528,7 @@ def _build_one_fb2(
         warnings.extend(meta_warnings)
         warnings.extend(_run_pandoc_fb2(md_files, meta_path, output_path, project_path))
 
-    warnings.extend(_postprocess_fb2(output_path, config))
+    warnings.extend(_postprocess_fb2(output_path, config, project_path))
 
     xsd_errors = _validate_fb2(output_path)
     if xsd_errors:
