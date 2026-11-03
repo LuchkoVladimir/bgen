@@ -123,7 +123,11 @@ local function Div(el)
 
   -- .asterism: сильный разделитель
   if classes["asterism"] then
-    return pandoc.RawBlock("fb2", "<p>* * *</p>")
+    return {
+      pandoc.RawBlock("fb2", "<empty-line/>"),
+      pandoc.RawBlock("fb2", "<p>* * *</p>"),
+      pandoc.RawBlock("fb2", "<empty-line/>"),
+    }
   end
 
   -- .text-author: автор эпиграфа
