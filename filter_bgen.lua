@@ -145,12 +145,6 @@ local function Div(el)
     classes[c] = true
   end
 
-  -- .text-author: автор эпиграфа
-  if classes["text-author"] then
-    local text = pandoc.utils.stringify(el.content)
-    return pandoc.RawBlock("fb2", "<text-author>" .. text .. "</text-author>")
-  end
-
   -- .annotation: аннотация секции
   if classes["annotation"] then
     local processed = pandoc.walk_block(el, { Div = Div })
@@ -165,14 +159,20 @@ local function Div(el)
     return pandoc.RawBlock("fb2", "<epigraph>" .. inner .. "</epigraph>")
   end
 
-  -- .poem: стихотворение
-  if classes["poem"] then
-    return render_poem(el)
-  end
-
   -- .asterism: сильный разделитель
   if classes["asterism"] then
     return pandoc.RawBlock("fb2", "<p>* * *</p>")
+  end
+
+  -- .text-author: автор эпиграфа
+  if classes["text-author"] then
+    local text = pandoc.utils.stringify(el.content)
+    return pandoc.RawBlock("fb2", "<text-author>" .. text .. "</text-author>")
+  end
+
+  -- .poem: стихотворение
+  if classes["poem"] then
+    return render_poem(el)
   end
 
   return nil
