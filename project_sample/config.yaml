@@ -69,8 +69,8 @@ fb2:
   #     1 слово  — nickname
   #     2 слова  — first-name, last-name
   #     3+ слова — first-name, middle-name, last-name
-  #   Словарь (все поля опциональны, но обычно нужно хотя бы одно):
-  #     id         — атрибут id (для ссылок), не дочерний тег
+  #   Словарь (все поля опциональны, но нужно nickname+ или (first-name+last-name)+):
+  #     id         — id автора
   #     first-name, middle-name, last-name, nickname, home-page (список), email (список)
   title-author:
     # Пример: полный словарь
@@ -107,10 +107,6 @@ fb2:
   title-date:
     value: "2026-11-05"
     text: "5 ноября 2026 (ох и давно)"
-  # или:
-  # title-date:
-  #   value: "2026-11-05"
-  #   text: "5 ноября 2026"
 
   # coverpage     0-1 (img) -- [pandoc] из metadata:cover-image
   # lang          1   (str) -- [pandoc] из metadata:lang
@@ -143,7 +139,7 @@ fb2:
 
   # author        1-n (<.>) -- [bgen-post / xml / ] from title-info/author
   #                             (first-name, middle-name, last-name, nickname, home-page, email, id)
-  # program-used  0-1 (str) -- [pandoc - bgen-reset]
+  # program-used  0-1 (str) -- [pandoc - bgen-reset] set bgen-vers.number
 
   # Дата документа в формате ISO (YYYY-MM-DD).
   # Если пусто или отсутствует — ставится текущая дата.
