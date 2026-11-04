@@ -72,8 +72,19 @@ fb2:
     - треш
     - и содомия
 
+  # Дата произведения (title-info/date).
+  #   "" (пусто) — не записывается.
+  #   "2026-11-05" — ISO-дата; используется и в value, и в тексте.
+  #   {value: "2026-11-05", text: "5 ноября 2026"} — value в ISO,
+  #     текст для отображения.
+  title-date:
+    value: "2026-11-05"
+    text: "5 ноября 2026 (ох и давно)"
+  # или:
+  # title-date:
+  #   value: "2026-11-05"
+  #   text: "5 ноября 2026"
 
-  # date          0-1 (str) -- [xml]                                !
   # coverpage     0-1 (img) -- [pandoc] из metadata:cover-image
   # lang          1   (str) -- [pandoc] из metadata:lang
   # src-lang      0-1 (str) -- [xml]

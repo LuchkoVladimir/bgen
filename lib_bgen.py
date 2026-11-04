@@ -508,6 +508,25 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
         kw_el = ET.SubElement(title_info, f"{{{FB2_NS}}}keywords")
         kw_el.text = ", ".join(str(k) for k in keywords)
 
+    # title-info/date
+    title_date = fb2_cfg.get("title-date")
+    if title_date:
+        if isinstance(title_date, dict):
+            value = title_date.get("value")
+            text = title_date.get("text") or value
+            if not value:
+                raise BgenError(
+                    "fb2.title-date: словарь должен содержать 'value' (ISO)"
+                )
+        else:
+            value = str(title_date)
+            text = value
+
+        date_el = ET.SubElement(
+            title_info, f"{{{FB2_NS}}}date", {"value": str(value)}
+        )
+        date_el.text = str(text)
+
     # document-info требует <author>. Копируем из title-info, если своего нет.
     if doc_info.find("fb:author", ns) is None:
         title_author = title_info.find("fb:author", ns)
