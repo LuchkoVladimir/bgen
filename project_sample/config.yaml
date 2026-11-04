@@ -65,7 +65,14 @@ fb2:
   # author        1-n (<.>) -- [pandoc] из metadata:author          !!
   # book-title    1   (str) -- [pandoc] из metadata:title
   # annotation    0-1 (md)  -- [bgen-post] вставляется из md
-  # keywords      0-1 (str) -- [xml]                                !
+
+  # Ключевые слова для поиска (FB2 title-info/keywords).
+  # Список строк; при записи склеиваются через запятую.
+  keywords:
+    - треш
+    - и содомия
+
+
   # date          0-1 (str) -- [xml]                                !
   # coverpage     0-1 (img) -- [pandoc] из metadata:cover-image
   # lang          1   (str) -- [pandoc] из metadata:lang

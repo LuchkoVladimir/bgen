@@ -500,6 +500,14 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
         else:
             raise BgenError(f"fb2.genres: ожидается строка или словарь, получено {type(g).__name__}")
 
+    # title-info/keywords (список строк через запятую)
+    keywords = fb2_cfg.get("keywords") or []
+    if keywords:
+        for old in title_info.findall("fb:keywords", ns):
+            title_info.remove(old)
+        kw_el = ET.SubElement(title_info, f"{{{FB2_NS}}}keywords")
+        kw_el.text = ", ".join(str(k) for k in keywords)
+
     # document-info требует <author>. Копируем из title-info, если своего нет.
     if doc_info.find("fb:author", ns) is None:
         title_author = title_info.find("fb:author", ns)
