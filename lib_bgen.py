@@ -22,6 +22,8 @@ try:
 except ImportError:
     raise ImportError("Требуется lxml. Установите: pip install lxml")
 
+PROGRAM_USED = "bgen-1.0"
+
 FB2_NS = "http://www.gribuser.ru/xml/fictionbook/2.0"
 BGEN_DIR = Path(__file__).resolve().parent
 SCHEMAS_DIR = BGEN_DIR / "schemas"
@@ -34,13 +36,7 @@ _TITLE_INFO_ORDER = [
     "genre", "author", "book-title", "annotation", "keywords",
     "date", "coverpage", "lang", "src-lang", "translator", "sequence",
 ]
-_DOC_INFO_ORDER = ["author", "program-used", "date", "id", "version"]
-
-# Поля, которые Pandoc генерирует в <document-info> служебно.
-# Удаляются из сгенерированного description перед применением шаблона.
-# Список может быть расширен, если Pandoc начнёт генерировать новые
-# служебные поля (см. changelog Pandoc FB2-writer).
-_PANDOC_OPTIONAL_TAGS = {"program-used", "history", "src-url", "src-ocr"}
+_DOC_INFO_ORDER = ["author", "program-used", "date", "src-url", "src-ocr", "id", "version", "history", "publisher"]
 
 class BgenError(Exception):
     """Ошибка bgen, пригодная для показа пользователю."""
@@ -290,15 +286,6 @@ def _update_book_anno_and_epi_from_body(body: ET.Element, title_info: ET.Element
         body.insert(first_section_idx + offset, ep)
 
 
-def _clean_pandoc_optional(doc_info: ET.Element) -> None:
-    """Удаляет из <document-info> поля, которые Pandoc генерирует служебно
-    и которые не должны попадать в шаблон (program-used, history и т.п.)."""
-    ns = FB2_NS
-    for tag in _PANDOC_OPTIONAL_TAGS:
-        for el in doc_info.findall(f"{{{ns}}}{tag}"):
-            doc_info.remove(el)
-
-
 def _apply_custom_description(
     root: ET.Element,
     project_path: Path,
@@ -519,6 +506,12 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
         if title_author is not None:
             doc_info.append(copy.deepcopy(title_author))
 
+    # document-info program-used pandoc генерирует свой, но мы пишем себя, так как включаем постобработку
+    program_el = doc_info.find("fb:program-used", ns)
+    if program_el is None:
+        program_el = ET.SubElement(doc_info, f"{{{FB2_NS}}}program-used")
+    program_el.text = PROGRAM_USED
+
     # document-info нужен id
     book_id = _make_book_id(config)
     id_el = doc_info.find("fb:id", ns)
@@ -526,9 +519,12 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
         id_el = ET.SubElement(doc_info, f"{{{FB2_NS}}}id")
     id_el.text = book_id
 
-    # сейчас версию пишём жёстко TODO: задавать из конфиги
-    if doc_info.find("fb:version", ns) is None:
-        ET.SubElement(doc_info, f"{{{FB2_NS}}}version").text = "1.0"
+    # document-info version обязательна
+    version_val = fb2_cfg.get("version") or "1.0"
+    version_el = doc_info.find("fb:version", ns)
+    if version_el is None:
+        version_el = ET.SubElement(doc_info, f"{{{FB2_NS}}}version")
+    version_el.text = str(version_val)
 
     # Дата TODO: разобраться, почему не отображается в fbreader
     date_val = fb2_cfg.get("date") or date_cls.today().isoformat()
@@ -563,9 +559,6 @@ def _postprocess_fb2(
 
     # Приводим порядок в соответствие со схемой FB2
     _sort_children_by_order(title_info, _TITLE_INFO_ORDER)
-
-    # Убираем служебные поля Pandoc из сгенерированного description
-    _clean_pandoc_optional(doc_info)
 
     # Приводим порядок в соответствие со схемой FB2
     _sort_children_by_order(doc_info, _DOC_INFO_ORDER)

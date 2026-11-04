@@ -23,7 +23,6 @@ metadata:
   # Обложка: путь относительно корня проекта.
   # Если файла нет — сборка продолжится без обложки (с предупреждением).
   cover-image: img/cover.jpg
-  toc: true
 
 # ------------------------------------------------------------
 # Форматы сборки
@@ -36,25 +35,13 @@ fb2:
   enabled: true
   output_name: book.fb2
 
-  # Жанры FB2 (коды). Если не заданы — будет "unrecognised".
-  genres:
-    - sf
-    - sf_fantasy
-    - name: detective
-      match: 20
-#
-  # Дата документа в формате ISO (YYYY-MM-DD).
-  # Если пусто или отсутствует — ставится текущая дата.
-  date: ""
-
-  # id книги.
-  #   "" (пусто) — сгенерировать UUID5 от title+author+lang (стабильно, уникально).
-  #   "любая строка" — использовать как есть.
-  id: ""
+  # Иерархическое форматирование XML с отступами (косметика).
+  # Требует Python 3.9+ (ET.indent).
+  pretty_print: true
 
   # Режим работы с <description>:
   #   auto     — bgen генерирует description из config.yaml/body/ и упорядочивает.
-  #   template — fb2_description.xml задаёт структуру; bgen заполняет
+  #   template — fb2_description.xml задаёт структуру и значения по умолчанию; bgen заполняет
   #              СУЩЕСТВУЮЩИЕ элементы шаблона значениями из config.yaml/body/.
   #              Новые элементы не добавляются, порядок не меняется.
   #   override — fb2_description.xml заменяет description целиком.
@@ -64,9 +51,58 @@ fb2:
   #              title/author для Pandoc, иначе сборка упадёт.
   description: auto
 
-  # Иерархическое форматирование XML с отступами (косметика).
-  # Требует Python 3.9+ (ET.indent).
-  pretty_print: true
+  #
+  # description/title-info
+  #
+
+  # Жанры FB2 (коды). Если не заданы — будет "unrecognised".
+  genres:
+    - sf
+    - sf_fantasy
+    - name: detective
+      match: 20
+
+  # author        1-n (<.>) -- [pandoc] из metadata:author          !!
+  # book-title    1   (str) -- [pandoc] из metadata:title
+  # annotation    0-1 (md)  -- [bgen-post] вставляется из md
+  # keywords      0-1 (str) -- [xml]                                !
+  # date          0-1 (str) -- [xml]                                !
+  # coverpage     0-1 (img) -- [pandoc] из metadata:cover-image
+  # lang          1   (str) -- [pandoc] из metadata:lang
+  # src-lang      0-1 (str) -- [xml]
+  # translator    0-n (<.>) -- [xml]
+  # sequence      0-n (<>)  -- [xml] < name= [,number= ][, lang= ]> !
+
+  #
+  # description/document-info
+  #
+
+  # author        1-n (<.>) -- [bgen-post] title-info/author        !!
+  #                             (first-name, middle-name, last-name, nickname, home-page, email, id)
+  # program-used  0-1 (str) -- [pandoc - bgen-reset]
+
+  # Дата документа в формате ISO (YYYY-MM-DD).
+  # Если пусто или отсутствует — ставится текущая дата.
+  date: ""
+
+  # src-url       0-n (str) -- [xml]
+  #                             Откуда взят оригинальный документ, доступный в online
+  # src-ocr       0-1 (str) -- [xml]
+  #                             Автор OCR или оригинального документа, размещенного в online. (откуда сканили)
+
+  # id книги.
+  #   "" (пусто) — сгенерировать UUID5 от title+author+lang (стабильно, уникально).
+  #   "любая строка" — использовать как есть.
+  id: ""
+
+  # Версия FB2-документа (document-info/version).
+  # Пусто — "1.0". Иначе — указанное значение как есть.
+  # Увеличивайте при публичном изменении книги (см. спецификацию FB2).
+  version: ""
+
+  # history       0-1 (md)  -- [xml] История изменений документа
+  # publisher     0-n (<.>) -- [xml] Правообладатель как у автора теги
+
 
 # epub:
 #   enabled: true
