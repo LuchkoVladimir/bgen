@@ -552,6 +552,14 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
                 f"получено {type(seq).__name__}"
             )
 
+
+    # document-info/author: копируем первого автора из title-info, если включено.
+    copy_author = fb2_cfg.get("doc-author-copy-first-from-title", False)
+    if copy_author:
+        first_title_author = title_info.find("fb:author", ns)  # find вернёт первый
+        if first_title_author is not None:
+            doc_info.append(copy.deepcopy(first_title_author))
+
     # document-info требует <author>. Копируем из title-info, если своего нет.
     if doc_info.find("fb:author", ns) is None:
         title_author = title_info.find("fb:author", ns)
