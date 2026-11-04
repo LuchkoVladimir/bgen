@@ -239,35 +239,36 @@ def _update_book_anno_and_epi_from_body(body: ET.Element, title_info: ET.Element
     """
     ns = {"fb": FB2_NS}
 
-    # Собираем аннотацию и эпиграфы книги в безымянных секциях.
+    blank_sections = [
+        s for s in body.findall("fb:section", ns)
+        if s.find("fb:title", ns) is None
+    ]
+    if len(blank_sections) > 1:
+        raise BgenError(
+            f"Pandoc сгенерировал {len(blank_sections)} безымянных секций, "
+            f"ожидалась одна (для аннотации/эпиграфа книги)"
+        )
+
+    # Собираем аннотацию и эпиграфы книги в безымянной секции
     book_annotations = []
     book_epigraphs = []
 
-    for section in list(body.findall("fb:section", ns)):
-        # Секция с <title> — это глава, не трогаем.
-        if section.find("fb:title", ns) is not None:
-            continue
-
-        # Собираем annotation
-        for ann in section.findall("fb:annotation", ns):
-            book_annotations.append(ann)
+    if blank_sections:
+        section = blank_sections[0]
+        book_annotations = list(section.findall("fb:annotation", ns))
+        for ann in book_annotations:
             section.remove(ann)
-
-        # Собираем epigraph
-        for ep in section.findall("fb:epigraph", ns):
-            book_epigraphs.append(ep)
+        book_epigraphs = list(section.findall("fb:epigraph", ns))
+        for ep in book_epigraphs:
             section.remove(ep)
-
-        # Если секция опустела — удаляем
-        leftover = [c for c in section if c.tag != f"{{{FB2_NS}}}empty-line"]
+        leftover = [c for c in section]
         if leftover:
             raise BgenError(
                 f"в безымянной секции после переноса annotation/epigraph "
                 f"осталось содержимое: {[c.tag for c in leftover]}"
             )
-
         body.remove(section)
- 
+
     # Вставляем аннотацию книги в <title-info>, собирая одну общую из нескольких, если их было много
     if book_annotations:
         for old in title_info.findall("fb:annotation", ns):
@@ -410,7 +411,8 @@ def _apply_custom_description(
 
 
 def _fix_fb2_pandoc_bugs(root: ET.Element) -> None:
-    # Известный баг Pandoc: пустой <emphasis /> после таблиц. Именно в этом порядке!
+    # Известный баг Pandoc: пустой <emphasis /> после таблиц.
+    # Именно в этом порядке! (<p><emphasis /></p>)
     # Шаг 1: пустые <emphasis>
     for emph in list(root.iter(f"{{{FB2_NS}}}emphasis")):
         if not (emph.text or "").strip() and len(emph) == 0:
@@ -552,8 +554,8 @@ def _postprocess_fb2(
     # Фикс известных багов
     _fix_fb2_pandoc_bugs(root)
 
-    # В bgen мы пишем аннотацию и эпиграф перед первой секцией, что pandoc обработал md. Теперь нужно
-    # достать из созданной для них секции и разместить где нужно
+    # В bgen мы пишем аннотацию и эпиграф перед первой секцией, чтобы pandoc обработал md. Теперь нужно
+    # достать из созданной pandoc`ом для них секции и разместить где нужно
     _update_book_anno_and_epi_from_body(body, title_info)
 
     # Заполняем метадату по конфиге
