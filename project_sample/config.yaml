@@ -51,9 +51,9 @@ fb2:
   #              title/author для Pandoc, иначе сборка упадёт.
   description: auto
 
-  #
-  # description/title-info
-  #
+  ##########################
+  # description/title-info #
+  ##########################
 
   # Жанры FB2 (коды). Если не заданы — будет "unrecognised".
   genres:
@@ -89,11 +89,24 @@ fb2:
   # lang          1   (str) -- [pandoc] из metadata:lang
   # src-lang      0-1 (str) -- [xml]
   # translator    0-n (<.>) -- [xml]
-  # sequence      0-n (<>)  -- [xml] < name= [,number= ][, lang= ]> !
 
-  #
-  # description/document-info
-  #
+  # Серия книг (title-info/sequence). Может быть несколько.
+  # Каждый элемент — либо строка (только name),
+  # либо словарь {name, number, lang}.
+  #   name   (обязателен) — название серии.
+  #   number (опционален) — номер книги в серии.
+  #   lang   (опционален) — язык серии (xml:lang), например "ru".
+  sequence:
+  # - "Примерная серия"
+  # или:
+    - name: "Примерная серия"
+      number: 1
+      lang: ru
+
+
+  #############################
+  # description/document-info #
+  #############################
 
   # author        1-n (<.>) -- [bgen-post] title-info/author        !!
   #                             (first-name, middle-name, last-name, nickname, home-page, email, id)

@@ -24,6 +24,7 @@ except ImportError:
 
 PROGRAM_USED = "bgen-1.0"
 
+XML_NS = "http://www.w3.org/XML/1998/namespace"
 FB2_NS = "http://www.gribuser.ru/xml/fictionbook/2.0"
 BGEN_DIR = Path(__file__).resolve().parent
 SCHEMAS_DIR = BGEN_DIR / "schemas"
@@ -526,6 +527,30 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
             title_info, f"{{{FB2_NS}}}date", {"value": str(value)}
         )
         date_el.text = str(text)
+
+    # title-info/sequence (может быть несколько)
+    sequences = fb2_cfg.get("sequence") or []
+    for seq in sequences:
+        if isinstance(seq, str):
+            if not seq:
+                continue  # пустая строка — пропускаем
+            ET.SubElement(title_info, f"{{{FB2_NS}}}sequence", {"name": seq})
+        elif isinstance(seq, dict):
+            if not seq.get("name"):
+                raise BgenError(
+                    f"fb2.sequence: словарь должен содержать 'name', получено {seq!r}"
+                )
+            attrs = {"name": str(seq["name"])}
+            if seq.get("number") is not None:
+                attrs["number"] = str(seq["number"])
+            if seq.get("lang"):
+                attrs[f"{{{XML_NS}}}lang"] = str(seq["lang"])
+            ET.SubElement(title_info, f"{{{FB2_NS}}}sequence", attrs)
+        else:
+            raise BgenError(
+                f"fb2.sequence: ожидается строка или словарь, "
+                f"получено {type(seq).__name__}"
+            )
 
     # document-info требует <author>. Копируем из title-info, если своего нет.
     if doc_info.find("fb:author", ns) is None:
