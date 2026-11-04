@@ -39,6 +39,9 @@ def cmd_stat(args):
     print("\nТоп-20 слов:")
     for word, count in stats["top"]:
         print(f"  {word}: {count}")
+    print("\nПорядок файлов:")
+    for fname in stats["filenames"]:
+        print(f"  {fname}")
 
 
 def main():

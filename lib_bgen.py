@@ -78,33 +78,18 @@ def _resolve_formats(config: dict, only: str | None) -> list[str]:
         section = config.get(fmt) or {}
         if section.get("enabled", False):
             formats.append(fmt)
+
+    if not formats:
+        raise BgenError("не включено ни одного формата (проверьте config.yaml)")
+
     return formats
-
-
-def _make_book_id(config: dict) -> str:
-    """Возвращает id книги: явный из fb2.id или UUID5 от title+author+lang."""
-    fb2_cfg = config.get("fb2") or {}
-    explicit = fb2_cfg.get("id")
-    if explicit:
-        return str(explicit)
-
-    meta = config.get("metadata") or {}
-    title = meta.get("title", "")
-    authors = meta.get("author") or []
-    if isinstance(authors, list):
-        author_str = "|".join(str(a) for a in authors)
-    else:
-        author_str = str(authors)
-    lang = meta.get("lang", "ru")
-    key = f"{title}|{author_str}|{lang}"
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, key))
 
 
 # ============================================================
 # Структура проекта
 # ============================================================
 
-def _iter_text_files(project_path: Path) -> list[Path]:
+def _get_body_files(project_path: Path) -> list[Path]:
     body_dir = project_path / "body"
     if not body_dir.exists():
         raise BgenError(f"директория {body_dir} не найдена")
@@ -115,7 +100,7 @@ def _iter_text_files(project_path: Path) -> list[Path]:
 
 
 # ============================================================
-# Сборка FB2
+# FB2
 # ============================================================
 
 def _build_fb2_metadata(project_path: Path, config: dict, tmpdir: Path) -> tuple[Path, list[str]]:
@@ -174,6 +159,25 @@ def _run_pandoc_fb2(md_files: list[Path], meta_path: Path, output: Path,
 # ============================================================
 # Постобработка FB2
 # ============================================================
+
+def _make_book_id(config: dict) -> str:
+    """Возвращает id книги: явный из fb2.id или UUID5 от title+author+lang."""
+    fb2_cfg = config.get("fb2") or {}
+    explicit = fb2_cfg.get("id")
+    if explicit:
+        return str(explicit)
+
+    meta = config.get("metadata") or {}
+    title = meta.get("title", "")
+    authors = meta.get("author") or []
+    if isinstance(authors, list):
+        author_str = "|".join(str(a) for a in authors)
+    else:
+        author_str = str(authors)
+    lang = meta.get("lang", "ru")
+    key = f"{title}|{author_str}|{lang}"
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, key))
+
 
 def _remove_empty_emphasis(root: ET.Element) -> None:
     """Известный баг Pandoc FB2-writer: после таблиц добавляется <p><emphasis /></p>."""
@@ -524,10 +528,10 @@ def _validate_fb2(fb2_path: Path) -> list[str]:
 
 
 # ============================================================
-# Высокоуровневые команды
+# Сборка FB2
 # ============================================================
 
-def _build_one_fb2(
+def _build_fb2(
     project_path: Path,
     config: dict,
     output_dir: Path,
@@ -536,7 +540,7 @@ def _build_one_fb2(
     output_name = fb2_cfg.get("output_name", "book.fb2")
     output_path = output_dir / output_name
 
-    md_files = _iter_text_files(project_path)
+    md_files = _get_body_files(project_path)
 
     warnings: list[str] = []
     with tempfile.TemporaryDirectory() as tmp:
@@ -545,6 +549,7 @@ def _build_one_fb2(
         warnings.extend(meta_warnings)
         warnings.extend(_run_pandoc_fb2(md_files, meta_path, output_path, project_path))
 
+    # pandoc формирует fb2 со множеством проблем, поэтому требуется постобработка
     warnings.extend(_postprocess_fb2(output_path, config, project_path))
 
     xsd_errors = _validate_fb2(output_path)
@@ -553,29 +558,6 @@ def _build_one_fb2(
         raise BgenError(f"FB2 не прошёл валидацию по XSD:\n{error_text}")
 
     return output_path, warnings
-
-
-def build(project_path: Path, only: str | None = None) -> list[tuple[str, Path, list[str]]]:
-    project_path = _validate_project_path(project_path)
-    config = _load_config(project_path)
-
-    formats = _resolve_formats(config, only)
-    if not formats:
-        raise BgenError("не включено ни одного формата (проверьте config.yaml)")
-
-    output_dir = project_path / config.get("output_dir", "output")
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    results: list[tuple[str, Path, list[str]]] = []
-    for fmt in formats:
-        if fmt == "fb2":
-            output_path, warnings = _build_one_fb2(
-                project_path, config, output_dir
-            )
-            results.append((fmt, output_path, warnings))
-        else:
-            raise BgenError(f"формат {fmt} ещё не реализован")
-    return results
 
 
 # ============================================================
@@ -595,7 +577,7 @@ def _strip_markdown(text: str) -> str:
     return text
 
 
-def _analyze(files: list[Path]) -> dict:
+def _get_stat_from_md(files: list[Path]) -> dict:
     full = "\n".join(_strip_markdown(p.read_text(encoding="utf-8")) for p in files)
     words = re.findall(r"[A-Za-zА-Яа-яЁё]+(?:-[A-Za-zА-Яа-яЁё]+)*", full)
     words4 = re.findall(r"[A-Za-zА-Яа-яЁё]{4,}(?:-[A-Za-zА-Яа-яЁё]{4,})*", full)
@@ -608,13 +590,38 @@ def _analyze(files: list[Path]) -> dict:
         "words": len(words),
         "unique_words": len(counter),
         "top": counter4.most_common(20),
+        "filenames": files,
     }
 
 
+# ============================================================
+# Высокоуровневые команды
+# ============================================================
+
 def stat(project_path: Path) -> dict | None:
     project_path = _validate_project_path(project_path)
-    _load_config(project_path)
-    files = _iter_text_files(project_path)
-    return _analyze(files)
+    files = _get_body_files(project_path)
+    return _get_stat_from_md(files)
+
+
+def build(project_path: Path, only: str | None = None) -> list[tuple[str, Path, list[str]]]:
+    project_path = _validate_project_path(project_path)
+    config = _load_config(project_path)
+
+    formats = _resolve_formats(config, only)
+
+    output_dir = project_path / config.get("output_dir", "output")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    results: list[tuple[str, Path, list[str]]] = []
+    for fmt in formats:
+        if fmt == "fb2":
+            output_path, warnings = _build_fb2(
+                project_path, config, output_dir
+            )
+            results.append((fmt, output_path, warnings))
+        else:
+            raise BgenError(f"формат {fmt} ещё не реализован")
+    return results
 
 
