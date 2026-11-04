@@ -471,6 +471,15 @@ def _write_fb2(tree: ET.ElementTree, print_pretty: bool, fb2_path: Path) -> list
     return warnings
 
 
+def _is_valid_author_dict(a: dict) -> bool:
+    """Проверяет, что словарь автора соответствует одному из вариантов FB2:
+    nickname + any, либо first-name + last-name + any.
+    """
+    if a.get("nickname"):
+        return True
+    return bool(a.get("first-name") and a.get("last-name"))
+
+
 def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element) -> None:
     fb2_cfg = config.get("fb2") or {}
     ns = {"fb": FB2_NS}
@@ -500,6 +509,56 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
             ET.SubElement(title_info, f"{{{FB2_NS}}}genre").text = g
         else:
             raise BgenError(f"fb2.genres: ожидается строка или словарь, получено {type(g).__name__}")
+
+    # title-info/author (детальная настройка). Если пусто — оставляем Pandoc-овского.
+    title_authors = fb2_cfg.get("title-author") or []
+    # Нормализуем: убираем пустые строки и невалидные словари
+    title_authors = [
+        a for a in title_authors
+        if (isinstance(a, str) and a.strip())
+        or (isinstance(a, dict) and _is_valid_author_dict(a))
+    ]
+    if title_authors:
+        # Удаляем сгенерированных Pandoc'ом авторов
+        for old in title_info.findall("fb:author", ns):
+            title_info.remove(old)
+
+        for author in title_authors:
+            if isinstance(author, str):
+                words = author.split()
+                author_el = ET.SubElement(title_info, f"{{{FB2_NS}}}author")
+                if len(words) == 1:
+                    ET.SubElement(author_el, f"{{{FB2_NS}}}nickname").text = words[0]
+                elif len(words) == 2:
+                    ET.SubElement(author_el, f"{{{FB2_NS}}}first-name").text = words[0]
+                    ET.SubElement(author_el, f"{{{FB2_NS}}}last-name").text = words[1]
+                else:
+                    ET.SubElement(author_el, f"{{{FB2_NS}}}first-name").text = words[0]
+                    ET.SubElement(author_el, f"{{{FB2_NS}}}middle-name").text = " ".join(words[1:-1])
+                    ET.SubElement(author_el, f"{{{FB2_NS}}}last-name").text = words[-1]
+            elif isinstance(author, dict):
+                author_el = ET.SubElement(title_info, f"{{{FB2_NS}}}author")
+                # Одиночные поля --- Имя, отчество, фамилия, никнейм (в этом порядке)
+                for field in ("first-name", "middle-name", "last-name", "nickname"):
+                    val = author.get(field)
+                    if val:
+                        ET.SubElement(author_el, f"{{{FB2_NS}}}{field}").text = str(val)
+                # Множественные поля --- home-page, email (порядок!)
+                for field in ("home-page", "email"):
+                    values = author.get(field) or []
+                    if isinstance(values, str):
+                        values = [values]
+                    for v in values:
+                        if v:
+                            ET.SubElement(author_el, f"{{{FB2_NS}}}{field}").text = str(v)
+                # id - идёт последним
+                if author.get("id"):
+                    ET.SubElement(author_el, f"{{{FB2_NS}}}id").text = str(author["id"])
+            else:
+                raise BgenError(
+                    f"fb2.title-author: ожидается строка или словарь, "
+                    f"получено {type(author).__name__}"
+                )
 
     # title-info/keywords (список строк через запятую)
     keywords = fb2_cfg.get("keywords") or []
