@@ -100,7 +100,41 @@ def _get_body_files(project_path: Path) -> list[Path]:
 
 
 # ============================================================
-# FB2
+# Статистика
+# ============================================================
+
+def _strip_markdown(text: str) -> str:
+    text = re.sub(r"^#+\s*", "", text, flags=re.MULTILINE)
+    text = re.sub(r"!\[.*?\]\(.*?\)", "", text)
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"`[^`]*`", "", text)
+    text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
+    text = re.sub(r"[*_~]", "", text)
+    text = re.sub(r"^:::\s*\{[^}]*\}\s*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^:::\s*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"\[([^\]]*)\]\{[^}]*\}", r"\1", text)  # Span
+    return text
+
+
+def _get_stat_from_md(files: list[Path]) -> dict:
+    full = "\n".join(_strip_markdown(p.read_text(encoding="utf-8")) for p in files)
+    words = re.findall(r"[A-Za-zА-Яа-яЁё]+(?:-[A-Za-zА-Яа-яЁё]+)*", full)
+    words4 = re.findall(r"[A-Za-zА-Яа-яЁё]{4,}(?:-[A-Za-zА-Яа-яЁё]{4,})*", full)
+    counter = Counter(w.lower() for w in words)
+    counter4 = Counter(w.lower() for w in words4)
+    return {
+        "files": len(files),
+        "chars_with_spaces": len(full),
+        "chars_no_spaces": len(re.sub(r"\s", "", full)),
+        "words": len(words),
+        "unique_words": len(counter),
+        "top": counter4.most_common(20),
+        "filenames": files,
+    }
+
+
+# ============================================================
+# FB2-специфичное
 # ============================================================
 
 def _build_fb2_metadata(project_path: Path, config: dict, tmpdir: Path) -> tuple[Path, list[str]]:
@@ -179,19 +213,6 @@ def _make_book_id(config: dict) -> str:
     return str(uuid.uuid5(uuid.NAMESPACE_URL, key))
 
 
-def _remove_empty_emphasis(root: ET.Element) -> None:
-    """Известный баг Pandoc FB2-writer: после таблиц добавляется <p><emphasis /></p>."""
-    ns = FB2_NS
-    for p in list(root.iter(f"{{{ns}}}p")):
-        emph = p.find(f"{{{ns}}}emphasis")
-        if emph is not None and not (emph.text or "").strip() and len(emph) == 0:
-            if not (p.text or "").strip() and len(p) == 1:
-                for parent in root.iter():
-                    if p in list(parent):
-                        parent.remove(p)
-                        break
-
-
 def _sort_children_by_order(parent: ET.Element, order: list[str]) -> None:
     """Переставляет дочерние элементы parent в порядке order.
 
@@ -207,7 +228,7 @@ def _sort_children_by_order(parent: ET.Element, order: list[str]) -> None:
         parent.append(child)
 
 
-def _fix_book_level_elements(root: ET.Element) -> None:
+def _update_book_anno_and_epi_from_body(body: ET.Element, title_info: ET.Element) -> None:
     """За один проход по <body>: переносит <annotation> и <epigraph>
     из безымянных секций в <title-info> и <body> соответственно.
 
@@ -217,56 +238,61 @@ def _fix_book_level_elements(root: ET.Element) -> None:
     главы, их не трогаем (схема FB2 это разрешает).
     """
     ns = {"fb": FB2_NS}
-    body = root.find("fb:body", ns)
-    if body is None:
-        return
-    title_info = root.find(".//fb:title-info", ns)
-    if title_info is None:
-        return
 
-    # Собираем аннотацию книги из <annotation> в безымянных секциях.
-    book_annotation_children = None
+    # Собираем аннотацию и эпиграфы книги в безымянных секциях.
+    book_annotations = []
+    book_epigraphs = []
 
     for section in list(body.findall("fb:section", ns)):
         # Секция с <title> — это глава, не трогаем.
         if section.find("fb:title", ns) is not None:
             continue
 
-        # Аннотация книги
-        annotation_el = section.find("fb:annotation", ns)
-        if annotation_el is not None:
-            if book_annotation_children is None:
-                book_annotation_children = list(annotation_el)
-            else:
-                book_annotation_children.extend(list(annotation_el))
-            section.remove(annotation_el)
+        # Собираем annotation
+        for ann in section.findall("fb:annotation", ns):
+            book_annotations.append(ann)
+            section.remove(ann)
 
-        # Эпиграф книги (может быть несколько)
-        for epigraph_el in list(section.findall("fb:epigraph", ns)):
-            idx = list(body).index(section)
-            section.remove(epigraph_el)
-            body.insert(idx, epigraph_el)
+        # Собираем epigraph
+        for ep in section.findall("fb:epigraph", ns):
+            book_epigraphs.append(ep)
+            section.remove(ep)
 
         # Если секция опустела — удаляем
-        if len(section) == 0:
-            body.remove(section)
+        leftover = [c for c in section if c.tag != f"{{{FB2_NS}}}empty-line"]
+        if leftover:
+            raise BgenError(
+                f"в безымянной секции после переноса annotation/epigraph "
+                f"осталось содержимое: {[c.tag for c in leftover]}"
+            )
 
-    # Вставляем аннотацию книги в <title-info>
-    if book_annotation_children is not None:
+        body.remove(section)
+ 
+    # Вставляем аннотацию книги в <title-info>, собирая одну общую из нескольких, если их было много
+    if book_annotations:
         for old in title_info.findall("fb:annotation", ns):
             title_info.remove(old)
         ann = ET.SubElement(title_info, f"{{{FB2_NS}}}annotation")
-        for child in book_annotation_children:
-            ann.append(child)
+        for annotation_el in book_annotations:
+            for child in list(annotation_el):
+                ann.append(child)
+
+    # Находим индекс куда вставлять эпиграфы (первой <section> в body или конца body, если нет <section>)
+    first_section_idx = len(body)
+    for i, child in enumerate(body):
+        if child.tag == f"{{{FB2_NS}}}section":
+            first_section_idx = i
+            break
+
+    # Вставляем эпиграфы после image/title
+    for offset, ep in enumerate(book_epigraphs):
+        body.insert(first_section_idx + offset, ep)
 
 
-def _clean_pandoc_optional(root: ET.Element) -> None:
+def _clean_pandoc_optional(doc_info: ET.Element) -> None:
     """Удаляет из <document-info> поля, которые Pandoc генерирует служебно
     и которые не должны попадать в шаблон (program-used, history и т.п.)."""
     ns = FB2_NS
-    doc_info = root.find(f".//{{{ns}}}document-info")
-    if doc_info is None:
-        return
     for tag in _PANDOC_OPTIONAL_TAGS:
         for el in doc_info.findall(f"{{{ns}}}{tag}"):
             doc_info.remove(el)
@@ -383,29 +409,81 @@ def _apply_custom_description(
     return warnings
 
 
-def _postprocess_fb2(
-    fb2_path: Path,
-    config: dict,
-    project_path: Path,
-) -> list[str]:
-    ET.register_namespace("", FB2_NS)
+def _fix_fb2_pandoc_bugs(root: ET.Element) -> None:
+    # Известный баг Pandoc: пустой <emphasis /> после таблиц. Именно в этом порядке!
+    # Шаг 1: пустые <emphasis>
+    for emph in list(root.iter(f"{{{FB2_NS}}}emphasis")):
+        if not (emph.text or "").strip() and len(emph) == 0:
+            for parent in root.iter():
+                if emph in list(parent):
+                    parent.remove(emph)
+                    break
 
-    tree = ET.parse(fb2_path)
-    root = tree.getroot()
+    # Шаг 2: пустые <p> (после удаления emphasis)
+    for p in list(root.iter(f"{{{FB2_NS}}}p")):
+        if not (p.text or "").strip() and len(p) == 0:
+            for parent in root.iter():
+                if p in list(parent):
+                    parent.remove(p)
+                    break
+
+    # Pandoc генерирует xlink:type="inlineImageType"/"imageType",
+    # схема FB2 требует fixed value "simple".
+    XLINK_NS = "http://www.w3.org/1999/xlink"
+    for el in root.iter():
+        xlink_type = el.get(f"{{{XLINK_NS}}}type")
+        if xlink_type is not None and xlink_type != "simple":
+            el.set(f"{{{XLINK_NS}}}type", "simple")
+
+
+def _check_fb2_affecting_sections(root: ET.Element) -> tuple[ET.Element, ET.Element, ET.Element]:
+    """Проверяет наличие секций, в которые bgen будет вносить изменения.
+    Возвращает (title_info, document_info, body).
+    Бросает BgenError, если чего-то нет.
+    """
     ns = {"fb": FB2_NS}
 
-    title_info = root.find(".//fb:title-info", ns)
-    if title_info is None:
-        raise BgenError("title-info не найден в сгенерированном FB2")
+    description = root.find("fb:description", ns)
+    if description is None:
+        raise BgenError("description не найден в сгенерированном pandoc FB2")
 
-    fb2_cfg = config.get("fb2") or {}
+    title_info = description.find("fb:title-info", ns)
+    if title_info is None:
+        raise BgenError("title-info не найден в сгенерированном pandoc FB2")
+
+    doc_info = description.find("fb:document-info", ns)
+    if doc_info is None:
+        raise BgenError("document-info не найден в сгенерированном pandoc FB2")
+
+    body = root.find("fb:body", ns)
+    if body is None:
+        raise BgenError("body не найден в сгенерированном pandoc FB2")
+
+    return title_info, doc_info, body
+
+
+def _write_fb2(tree: ET.ElementTree, print_pretty: bool, fb2_path: Path) -> list[str]:
+    """Иерархическое форматирование XML (ET.indent) и запись файла.
+
+    Возвращает список предупреждений (например, если ET.indent недоступен
+    на Python < 3.9). Запись выполняется всегда, даже если форматирование
+    пропущено.
+    """
     warnings: list[str] = []
 
-    # Известный баг Pandoc: пустой <emphasis /> после таблиц.
-    _remove_empty_emphasis(root)
+    if print_pretty:
+        try:
+            ET.indent(tree, space="  ", level=0)
+        except AttributeError:
+            warnings.append("ET.indent недоступен (Python < 3.9), форматирование пропущено")
 
-    # Известный баг Pandoc: оборачивание эпиграфа/аннотации книги в <section>
-    _fix_book_level_elements(root)
+    tree.write(fb2_path, encoding="utf-8", xml_declaration=True)
+    return warnings
+
+
+def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element) -> None:
+    fb2_cfg = config.get("fb2") or {}
+    ns = {"fb": FB2_NS}
 
     # Жанры
     for g in title_info.findall("fb:genre", ns):
@@ -433,62 +511,76 @@ def _postprocess_fb2(
         else:
             raise BgenError(f"fb2.genres: ожидается строка или словарь, получено {type(g).__name__}")
 
-    # document-info
-    description = root.find(".//fb:description", ns)
-    if description is None:
-        description = ET.SubElement(root, f"{{{FB2_NS}}}description")
-    doc_info = description.find("fb:document-info", ns)
-    if doc_info is None:
-        doc_info = ET.SubElement(description, f"{{{FB2_NS}}}document-info")
-
     # document-info требует <author>. Копируем из title-info, если своего нет.
     if doc_info.find("fb:author", ns) is None:
         title_author = title_info.find("fb:author", ns)
         if title_author is not None:
-            doc_info.insert(0, copy.deepcopy(title_author))
+            doc_info.append(copy.deepcopy(title_author))
 
+    # document-info нужен id
     book_id = _make_book_id(config)
     id_el = doc_info.find("fb:id", ns)
     if id_el is None:
         id_el = ET.SubElement(doc_info, f"{{{FB2_NS}}}id")
     id_el.text = book_id
 
+    # сейчас версию пишём жёстко TODO: задавать из конфиги
     if doc_info.find("fb:version", ns) is None:
         ET.SubElement(doc_info, f"{{{FB2_NS}}}version").text = "1.0"
 
+    # Дата TODO: разобраться, почему не отображается в fbreader
     date_val = fb2_cfg.get("date") or date_cls.today().isoformat()
     for old in doc_info.findall("fb:date", ns):
         doc_info.remove(old)
     ET.SubElement(doc_info, f"{{{FB2_NS}}}date", {"value": date_val}).text = date_val
 
-    # Pandoc генерирует xlink:type="inlineImageType"/"imageType",
-    # схема FB2 требует fixed value "simple".
-    XLINK_NS = "http://www.w3.org/1999/xlink"
-    for el in root.iter():
-        xlink_type = el.get(f"{{{XLINK_NS}}}type")
-        if xlink_type is not None and xlink_type != "simple":
-            el.set(f"{{{XLINK_NS}}}type", "simple")
 
-    # Приводим порядок в соответствие со схемой FB2 (после всех вставок)
+def _postprocess_fb2(
+    fb2_path: Path,
+    config: dict,
+    project_path: Path,
+) -> list[str]:
+    ET.register_namespace("", FB2_NS)
+
+    tree = ET.parse(fb2_path)
+    root = tree.getroot()
+    ns = {"fb": FB2_NS}
+
+    # Проверяем нужные нам для работы элементы структуры fb2 и получаем их из дерева
+    title_info, doc_info, body = _check_fb2_affecting_sections(root)
+
+    # Фикс известных багов
+    _fix_fb2_pandoc_bugs(root)
+
+    # В bgen мы пишем аннотацию и эпиграф перед первой секцией, что pandoc обработал md. Теперь нужно
+    # достать из созданной для них секции и разместить где нужно
+    _update_book_anno_and_epi_from_body(body, title_info)
+
+    # Заполняем метадату по конфиге
+    _update_metadata(config, title_info, doc_info)
+
+    # Приводим порядок в соответствие со схемой FB2
     _sort_children_by_order(title_info, _TITLE_INFO_ORDER)
-    _sort_children_by_order(doc_info, _DOC_INFO_ORDER)
 
     # Убираем служебные поля Pandoc из сгенерированного description
-    _clean_pandoc_optional(root)
+    _clean_pandoc_optional(doc_info)
+
+    # Приводим порядок в соответствие со схемой FB2
+    _sort_children_by_order(doc_info, _DOC_INFO_ORDER)
+
+    warnings: list[str] = []
 
     # fb2_description.xml (template / override)
     warnings.extend(_apply_custom_description(
         root, project_path, config, title_info, doc_info
     ))
 
-    # Косметика
-    if fb2_cfg.get("pretty_print", False):
-        try:
-            ET.indent(tree, space="  ", level=0)
-        except AttributeError:
-            warnings.append("ET.indent недоступен (Python < 3.9), форматирование пропущено")
+    # Печать финального fb2 в файл 
+    fb2_cfg = config.get("fb2") or {}
+    print_pretty = fb2_cfg.get("pretty_print", False)
 
-    tree.write(fb2_path, encoding="utf-8", xml_declaration=True)
+    warnings.extend(_write_fb2(tree, print_pretty, fb2_path))
+
     return warnings
 
 
@@ -558,40 +650,6 @@ def _build_fb2(
         raise BgenError(f"FB2 не прошёл валидацию по XSD:\n{error_text}")
 
     return output_path, warnings
-
-
-# ============================================================
-# Статистика
-# ============================================================
-
-def _strip_markdown(text: str) -> str:
-    text = re.sub(r"^#+\s*", "", text, flags=re.MULTILINE)
-    text = re.sub(r"!\[.*?\]\(.*?\)", "", text)
-    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
-    text = re.sub(r"`[^`]*`", "", text)
-    text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
-    text = re.sub(r"[*_~]", "", text)
-    text = re.sub(r"^:::\s*\{[^}]*\}\s*$", "", text, flags=re.MULTILINE)
-    text = re.sub(r"^:::\s*$", "", text, flags=re.MULTILINE)
-    text = re.sub(r"\[([^\]]*)\]\{[^}]*\}", r"\1", text)  # Span
-    return text
-
-
-def _get_stat_from_md(files: list[Path]) -> dict:
-    full = "\n".join(_strip_markdown(p.read_text(encoding="utf-8")) for p in files)
-    words = re.findall(r"[A-Za-zА-Яа-яЁё]+(?:-[A-Za-zА-Яа-яЁё]+)*", full)
-    words4 = re.findall(r"[A-Za-zА-Яа-яЁё]{4,}(?:-[A-Za-zА-Яа-яЁё]{4,})*", full)
-    counter = Counter(w.lower() for w in words)
-    counter4 = Counter(w.lower() for w in words4)
-    return {
-        "files": len(files),
-        "chars_with_spaces": len(full),
-        "chars_no_spaces": len(re.sub(r"\s", "", full)),
-        "words": len(words),
-        "unique_words": len(counter),
-        "top": counter4.most_common(20),
-        "filenames": files,
-    }
 
 
 # ============================================================
