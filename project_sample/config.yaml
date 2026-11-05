@@ -132,17 +132,19 @@ fb2:
   #############################
 
   # Копировать первого автора из title-info в document-info.
-  # true  — bgen копирует первого автора.
+  # true  — bgen копирует первого автора (значение в примере — чтобы
+  #         работало из коробки).
   # false — не копирует; автора для document-info задайте
   #         через fb2_description.xml (template). (по умолчанию)
   doc-author-copy-first-from-title: true
 
   # author        1-n (<.>) -- [bgen-post / xml / ] from title-info/author
   #                             (first-name, middle-name, last-name, nickname, home-page, email, id)
-  # program-used  0-1 (str) -- [pandoc - bgen-reset] set bgen-vers.number
+  # program-used  0-1 (str) -- [bgen] перезаписывается на "bgen".
+  #                             Своё значение — через fb2_description.xml.
 
-  # Дата документа в формате ISO (YYYY-MM-DD).
-  # Если пусто или отсутствует — ставится текущая дата.
+  # Дата документа (дата файла, не произведения — для произведения title-date).
+  # Формат ISO (YYYY-MM-DD). Если пусто — ставится текущая дата.
   date: ""
 
   # src-url       0-n (str) -- [xml]
