@@ -106,6 +106,15 @@ local function Div(el)
     return pandoc.RawBlock("fb2", "<annotation>" .. inner .. "</annotation>")
   end
 
+  -- .frontispiece: фронтиспис (книги) --- картинка перед title в body
+  if classes["frontispiece"] then
+    -- Содержимое — картинка (Image). Пропускаем как есть,
+    -- Pandoc сам создаст <binary> и <image>.
+    -- Оборачивать в RawBlock не нужно: <image> в <body> — валидный
+    -- элемент, а Pandoc сделает всё правильно.
+    return nil  -- оставляем Div как есть, Pandoc разберётся
+  end
+
   -- .epigraph: эпиграф (книги или главы)
   if classes["epigraph"] then
     local processed = pandoc.walk_block(el, { Div = Div })

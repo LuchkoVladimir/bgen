@@ -225,13 +225,13 @@ def _sort_children_by_order(parent: ET.Element, order: list[str]) -> None:
         parent.append(child)
 
 
-def _update_book_anno_and_epi_from_body(body: ET.Element, title_info: ET.Element) -> None:
-    """За один проход по <body>: переносит <annotation> и <epigraph>
+def _update_book_elements_from_body(body: ET.Element, title_info: ET.Element) -> None:
+    """За один проход по <body>: переносит <annotation>, <image> и <epigraph>
     из безымянных секций в <title-info> и <body> соответственно.
 
     Безымянная секция (без <title>) — признак элемента книжного уровня:
-    Pandoc оборачивает эпиграф/аннотацию книги, стоящие до первого заголовка,
-    в <section> без <title>. Если секция с <title> — это эпиграф/аннотация
+    Pandoc оборачивает эпиграф/фронтиспис/аннотацию книги, стоящие до первого заголовка,
+    в <section> без <title>. Если секция с <title> — это эпиграф/аннотация/фронтиспис
     главы, их не трогаем (схема FB2 это разрешает).
     """
     ns = {"fb": FB2_NS}
@@ -246,9 +246,10 @@ def _update_book_anno_and_epi_from_body(body: ET.Element, title_info: ET.Element
             f"ожидалась одна (для аннотации/эпиграфа книги)"
         )
 
-    # Собираем аннотацию и эпиграфы книги в безымянной секции
+    # Собираем аннотацию, фронтиспис и эпиграфы книги в безымянной секции
     book_annotations = []
     book_epigraphs = []
+    book_fronts = []
 
     if blank_sections:
         section = blank_sections[0]
@@ -258,6 +259,9 @@ def _update_book_anno_and_epi_from_body(body: ET.Element, title_info: ET.Element
         book_epigraphs = list(section.findall("fb:epigraph", ns))
         for ep in book_epigraphs:
             section.remove(ep)
+        book_fronts = list(section.findall("fb:image", ns))
+        for fp in book_fronts:
+            section.remove(fp)
         leftover = [c for c in section]
         if leftover:
             raise BgenError(
@@ -265,6 +269,15 @@ def _update_book_anno_and_epi_from_body(body: ET.Element, title_info: ET.Element
                 f"осталось содержимое: {[c.tag for c in leftover]}"
             )
         body.remove(section)
+
+    # Проверка: image может быть только один
+    if len(book_fronts) > 1:
+        raise BgenError(
+            f"в <body> может быть только один <image> (фронтиспис), "
+            f"найдено {len(book_images)}"
+        )
+    if book_fronts:
+        body.insert(0, book_fronts[0])
 
     # Вставляем аннотацию книги в <title-info>, собирая одну общую из нескольких, если их было много
     if book_annotations:
@@ -645,7 +658,7 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
         version_el = ET.SubElement(doc_info, f"{{{FB2_NS}}}version")
     version_el.text = str(version_val)
 
-    # Дата TODO: разобраться, почему не отображается в fbreader
+    # document-info Дата
     date_val = fb2_cfg.get("date") or date_cls.today().isoformat()
     for old in doc_info.findall("fb:date", ns):
         doc_info.remove(old)
@@ -669,9 +682,9 @@ def _postprocess_fb2(
     # Фикс известных багов
     _fix_fb2_pandoc_bugs(root)
 
-    # В bgen мы пишем аннотацию и эпиграф перед первой секцией, чтобы pandoc обработал md. Теперь нужно
+    # В bgen мы пишем аннотацию, фронтиспис и эпиграф перед первой секцией, чтобы pandoc обработал md. Теперь нужно
     # достать из созданной pandoc`ом для них секции и разместить где нужно
-    _update_book_anno_and_epi_from_body(body, title_info)
+    _update_book_elements_from_body(body, title_info)
 
     # Заполняем метадату по конфиге
     _update_metadata(config, title_info, doc_info)
