@@ -35,13 +35,6 @@ def cmd_stat(args):
     print(f"Знаков с пробелами: {stats['chars_with_spaces']}")
     print(f"Знаков без пробелов: {stats['chars_no_spaces']}")
     print(f"Слов: {stats['words']}")
-    print(f"Уникальных слов: {stats['unique_words']}")
-    print("\nТоп-20 слов:")
-    for word, count in stats["top"]:
-        print(f"  {word}: {count}")
-    print("\nПорядок файлов:")
-    for fname in stats["filenames"]:
-        print(f"  {fname}")
 
 
 def main():

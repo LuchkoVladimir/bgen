@@ -116,17 +116,11 @@ def _strip_markdown(text: str) -> str:
 def _get_stat_from_md(files: list[Path]) -> dict:
     full = "\n".join(_strip_markdown(p.read_text(encoding="utf-8")) for p in files)
     words = re.findall(r"[A-Za-zА-Яа-яЁё]+(?:-[A-Za-zА-Яа-яЁё]+)*", full)
-    words4 = re.findall(r"[A-Za-zА-Яа-яЁё]{4,}(?:-[A-Za-zА-Яа-яЁё]{4,})*", full)
-    counter = Counter(w.lower() for w in words)
-    counter4 = Counter(w.lower() for w in words4)
     return {
         "files": len(files),
         "chars_with_spaces": len(full),
         "chars_no_spaces": len(re.sub(r"\s", "", full)),
         "words": len(words),
-        "unique_words": len(counter),
-        "top": counter4.most_common(20),
-        "filenames": files,
     }
 
 
