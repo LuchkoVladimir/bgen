@@ -411,6 +411,48 @@ def _apply_custom_description(
     return warnings
 
 
+def _fb2_deduplicate_binaries(root: ET.Element) -> None:
+    """Удаляет дубликаты <binary> с одинаковым содержимым,
+    перенаправляя ссылки xlink:href на оставшийся id.
+    """
+    XLINK_NS = "http://www.w3.org/1999/xlink"
+    ns = {"fb": FB2_NS}
+
+    # Карта: base64-содержимое -> id первого встреченного binary
+    seen: dict[str, str] = {}
+    # Карта: старый id -> новый id (для ссылок)
+    id_map: dict[str, str] = {}
+    to_remove: list[ET.Element] = []
+
+    for binary in root.findall(f"{{{FB2_NS}}}binary"):
+        binary_id = binary.get("id")
+        content = (binary.text or "").strip()
+        if not binary_id or not content:
+            continue
+
+        if content in seen:
+            # Дубликат: запоминаем, что старый id теперь указывает на новый
+            id_map[binary_id] = seen[content]
+            to_remove.append(binary)
+        else:
+            seen[content] = binary_id
+
+    if not to_remove:
+        return
+
+    # Удаляем дубликаты
+    for binary in to_remove:
+        root.remove(binary)
+
+    # Перенаправляем ссылки
+    for el in root.iter():
+        href = el.get(f"{{{XLINK_NS}}}href")
+        if href and href.startswith("#"):
+            old_id = href[1:]
+            if old_id in id_map:
+                el.set(f"{{{XLINK_NS}}}href", f"#{id_map[old_id]}")
+
+
 def _fix_fb2_pandoc_bugs(root: ET.Element) -> None:
     # Известный баг Pandoc: пустой <emphasis /> после таблиц.
     # Именно в этом порядке! (<p><emphasis /></p>)
@@ -437,6 +479,10 @@ def _fix_fb2_pandoc_bugs(root: ET.Element) -> None:
         xlink_type = el.get(f"{{{XLINK_NS}}}type")
         if xlink_type is not None and xlink_type != "simple":
             el.set(f"{{{XLINK_NS}}}type", "simple")
+
+    # Если одна картинка добавлена в книгу несколько раз, то pandoc
+    # создаёт binary для каждого вхождения
+    _fb2_deduplicate_binaries(root)
 
 
 def _check_fb2_affecting_sections(root: ET.Element) -> tuple[ET.Element, ET.Element, ET.Element]:
