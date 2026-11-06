@@ -125,10 +125,10 @@ def _get_stat_from_md(files: list[Path]) -> dict:
 
 
 # ============================================================
-# FB2-специфичное
+# Общее
 # ============================================================
 
-def _build_fb2_metadata(project_path: Path, config: dict, tmpdir: Path) -> tuple[Path, list[str]]:
+def _build_pandoc_metadata(project_path: Path, config: dict, tmpdir: Path) -> tuple[Path, list[str]]:
     warnings: list[str] = []
     meta = dict(config.get("metadata") or {})
     meta.setdefault("lang", "ru")
@@ -152,6 +152,10 @@ def _build_fb2_metadata(project_path: Path, config: dict, tmpdir: Path) -> tuple
         yaml.dump(meta, f, allow_unicode=True, default_flow_style=False)
     return meta_path, warnings
 
+
+# ============================================================
+# FB2-специфичное
+# ============================================================
 
 def _run_pandoc_fb2(md_files: list[Path], meta_path: Path, output: Path,
                     resource_path: Path) -> list[str]:
@@ -524,20 +528,10 @@ def _write_fb2(tree: ET.ElementTree, print_pretty: bool, fb2_path: Path) -> list
     return warnings
 
 
-def _is_valid_author_dict(a: dict) -> bool:
-    """Проверяет, что словарь автора соответствует одному из вариантов FB2:
-    nickname + any, либо first-name + last-name + any.
-    """
-    if a.get("nickname"):
-        return True
-    return bool(a.get("first-name") and a.get("last-name"))
 
-
-def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element) -> None:
-    fb2_cfg = config.get("fb2") or {}
+def _update_metadata_genres(fb2_cfg: dict, title_info: ET.Element) -> None:
     ns = {"fb": FB2_NS}
 
-    # Жанры
     for g in title_info.findall("fb:genre", ns):
         title_info.remove(g)
     for g in fb2_cfg.get("genres") or ["unrecognised"]:
@@ -563,8 +557,20 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
         else:
             raise BgenError(f"fb2.genres: ожидается строка или словарь, получено {type(g).__name__}")
 
-    # title-info/author (детальная настройка). Если пусто — оставляем Pandoc-овского.
+
+def _update_metadata_authors(fb2_cfg: dict, title_info: ET.Element, doc_info: ET.Element) -> None:
+
+    def _is_valid_author_dict(a: dict) -> bool:
+        """Проверяет, что словарь автора соответствует одному из вариантов FB2:
+        nickname + any, либо first-name + last-name + any.
+        """
+        if a.get("nickname"):
+            return True
+        return bool(a.get("first-name") and a.get("last-name"))
+
+    ns = {"fb": FB2_NS}
     title_authors = fb2_cfg.get("title-author") or []
+
     # Нормализуем: убираем пустые строки и невалидные словари
     title_authors = [
         a for a in title_authors
@@ -613,15 +619,15 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
                     f"получено {type(author).__name__}"
                 )
 
-    # title-info/keywords (список строк через запятую)
-    keywords = fb2_cfg.get("keywords") or []
-    if keywords:
-        for old in title_info.findall("fb:keywords", ns):
-            title_info.remove(old)
-        kw_el = ET.SubElement(title_info, f"{{{FB2_NS}}}keywords")
-        kw_el.text = ", ".join(str(k) for k in keywords)
+    # document-info/author: копируем первого автора из title-info, если включено.
+    copy_author = fb2_cfg.get("doc-author-copy-first-from-title", False)
+    if copy_author:
+        first_title_author = title_info.find("fb:author", ns)  # find вернёт первый
+        if first_title_author is not None:
+            doc_info.append(copy.deepcopy(first_title_author))
 
-    # title-info/date
+
+def _update_metadata_title_date(fb2_cfg: dict, title_info: ET.Element) -> None:
     title_date = fb2_cfg.get("title-date")
     if title_date:
         if isinstance(title_date, dict):
@@ -640,7 +646,8 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
         )
         date_el.text = str(text)
 
-    # title-info/sequence (может быть несколько)
+
+def _update_metadata_sequence(fb2_cfg: dict, title_info: ET.Element) -> None:
     sequences = fb2_cfg.get("sequence") or []
     for seq in sequences:
         if isinstance(seq, str):
@@ -665,12 +672,30 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
             )
 
 
-    # document-info/author: копируем первого автора из title-info, если включено.
-    copy_author = fb2_cfg.get("doc-author-copy-first-from-title", False)
-    if copy_author:
-        first_title_author = title_info.find("fb:author", ns)  # find вернёт первый
-        if first_title_author is not None:
-            doc_info.append(copy.deepcopy(first_title_author))
+def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element) -> None:
+    fb2_cfg = config.get("fb2") or {}
+    ns = {"fb": FB2_NS}
+
+    # title-info/genre
+    _update_metadata_genres(fb2_cfg, title_info)
+
+    # title-info/author (детальная настройка). Если пусто — оставляем Pandoc-овского.
+    # document-info/author (копируем первого, если указано в настройках)
+    _update_metadata_authors(fb2_cfg, title_info, doc_info)
+
+    # title-info/keywords (список строк через запятую)
+    keywords = fb2_cfg.get("keywords") or []
+    if keywords:
+        for old in title_info.findall("fb:keywords", ns):
+            title_info.remove(old)
+        kw_el = ET.SubElement(title_info, f"{{{FB2_NS}}}keywords")
+        kw_el.text = ", ".join(str(k) for k in keywords)
+
+    # title-info/date
+    _update_metadata_title_date(fb2_cfg, title_info)
+
+    # title-info/sequence (может быть несколько)
+    _update_metadata_sequence(fb2_cfg, title_info)
 
     # document-info требует <author>. Копируем из title-info, если своего нет.
     if doc_info.find("fb:author", ns) is None:
@@ -804,7 +829,7 @@ def _build_fb2(
     warnings: list[str] = []
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
-        meta_path, meta_warnings = _build_fb2_metadata(project_path, config, tmpdir)
+        meta_path, meta_warnings = _build_pandoc_metadata(project_path, config, tmpdir)
         warnings.extend(meta_warnings)
         warnings.extend(_run_pandoc_fb2(md_files, meta_path, output_path, project_path))
 

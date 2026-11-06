@@ -25,11 +25,6 @@
 
 ## Высокий приоритет (закрыть до EPUB/DOCX)
 
-### Причесать `_update_metadata`
-**Что:** разбить на функции (`_update_title_info`, `_update_document_info`).
-**Зачем:** выросла (жанры, авторы, keywords, title-date, sequence, document-info).
-Трудно читать и тестировать.
-
 ### Передача warnings через внешний список
 **Что:** `build()` принимает `warnings: list[str]`, передаёт в `_build_fb2`
 и подфункции; `bgen.py` создаёт список, в `except BgenError` печатает накопленное.
