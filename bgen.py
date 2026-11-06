@@ -8,15 +8,18 @@ import lib_bgen
 
 
 def cmd_build(args):
+    warnings: list[str] = []
     try:
-        results = lib_bgen.build(Path(args.path), only=args.only)
+        results = lib_bgen.build(Path(args.path), only=args.only, warnings=warnings)
     except lib_bgen.BgenError as e:
+        for w in warnings:
+            print(f"Предупреждение: {w}", file=sys.stderr)
         print(f"Ошибка: {e}", file=sys.stderr)
         sys.exit(1)
 
-    for fmt, output_path, warnings in results:
-        for w in warnings:
-            print(f"Предупреждение ({fmt}): {w}", file=sys.stderr)
+    for w in warnings:
+        print(f"Предупреждение: {w}", file=sys.stderr)
+    for fmt, output_path in results:
         print(f"Готово ({fmt}): {output_path}")
 
 

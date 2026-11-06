@@ -12,12 +12,17 @@ except ImportError:
 from ..common import BGEN_DIR, BgenError
 
 
-def _build_pandoc_metadata(project_path: Path, config: dict, tmpdir: Path) -> tuple[Path, list[str]]:
+def _build_pandoc_metadata(
+    project_path: Path,
+    config: dict,
+    tmpdir: Path,
+    warnings: list[str],
+) -> Path:
     """Готовит metadata.yaml для Pandoc: резолвит cover-image, ставит lang по умолчанию.
 
-    Возвращает (путь к metadata.yaml, предупреждения).
+    warnings - внешний, для добавления предупреждений
+    Возвращает путь к metadata.yaml.
     """
-    warnings: list[str] = []
     meta = dict(config.get("metadata") or {})
     meta.setdefault("lang", "ru")
 
@@ -38,12 +43,17 @@ def _build_pandoc_metadata(project_path: Path, config: dict, tmpdir: Path) -> tu
     meta_path = tmpdir / "metadata.yaml"
     with open(meta_path, "w", encoding="utf-8") as f:
         yaml.dump(meta, f, allow_unicode=True, default_flow_style=False)
-    return meta_path, warnings
+    return meta_path
 
 
-def _run_pandoc_fb2(md_files: list[Path], meta_path: Path, output: Path,
-                    resource_path: Path) -> list[str]:
-    """Вызывает Pandoc для сборки FB2. Возвращает предупреждения (stderr)."""
+def _run_pandoc_fb2(
+    md_files: list[Path],
+    meta_path: Path,
+    output: Path,
+    resource_path: Path,
+    warnings: list[str],
+) -> None:
+    """Вызывает Pandoc для сборки FB2."""
     cmd = [
         "pandoc",
         "--from", "markdown",
@@ -64,9 +74,7 @@ def _run_pandoc_fb2(md_files: list[Path], meta_path: Path, output: Path,
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         raise BgenError(f"pandoc завершился с ошибкой:\n{result.stderr}")
-    warnings: list[str] = []
     if result.stderr:
         warnings.append(f"pandoc: {result.stderr.strip()}")
-    return warnings
 
 

@@ -130,7 +130,8 @@ def _apply_custom_description(
     config: dict,
     generated_title_info: ET.Element,
     generated_doc_info: ET.Element,
-) -> list[str]:
+    warnings: list[str],
+) -> None:
     """Применяет fb2_description.xml в режиме template или override.
 
     auto     — ничего не делает.
@@ -169,8 +170,6 @@ def _apply_custom_description(
             raise BgenError(f"в {desc_path} не найден <description>")
         custom_root = found
 
-    warnings: list[str] = []
-
     if mode == "override":
         old_desc = root.find(f"{{{FB2_NS}}}description")
         if old_desc is not None:
@@ -184,7 +183,7 @@ def _apply_custom_description(
             "(author, book-title, genre, date, annotation, coverpage, lang) "
             "игнорируются"
         )
-        return warnings
+        return
 
     # template: обходим шаблон (dst), заполняем из сгенерированного (src).
     ns = FB2_NS
@@ -229,8 +228,6 @@ def _apply_custom_description(
         root.insert(idx, custom_root)
     else:
         root.insert(0, custom_root)
-
-    return warnings
 
 
 def _fb2_deduplicate_binaries(root: ET.Element) -> None:
@@ -335,14 +332,16 @@ def _check_fb2_affecting_sections(root: ET.Element) -> tuple[ET.Element, ET.Elem
     return title_info, doc_info, body
 
 
-def _write_fb2(tree: ET.ElementTree, print_pretty: bool, fb2_path: Path) -> list[str]:
+def _write_fb2(
+    tree: ET.ElementTree,
+    print_pretty: bool,
+    fb2_path: Path,
+    warnings: list[str],
+) -> None:
     """Иерархическое форматирование XML (ET.indent) и запись файла.
 
-    Возвращает список предупреждений (например, если ET.indent недоступен
-    на Python < 3.9). Запись выполняется всегда.
+    Если ET.indent недоступен на Python < 3.9). Запись выполняется всегда.
     """
-    warnings: list[str] = []
-
     if print_pretty:
         try:
             ET.indent(tree, space="  ", level=0)
@@ -350,7 +349,6 @@ def _write_fb2(tree: ET.ElementTree, print_pretty: bool, fb2_path: Path) -> list
             warnings.append("ET.indent недоступен (Python < 3.9), форматирование пропущено")
 
     tree.write(fb2_path, encoding="utf-8", xml_declaration=True)
-    return warnings
 
 
 def _update_metadata_genres(fb2_cfg: dict, title_info: ET.Element) -> None:
@@ -553,9 +551,15 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
     ET.SubElement(doc_info, f"{{{FB2_NS}}}date", {"value": date_val}).text = date_val
 
 
-def _postprocess_fb2(fb2_path: Path, config: dict, project_path: Path) -> list[str]:
+def _postprocess_fb2(
+    fb2_path: Path,
+    config: dict,
+    project_path: Path,
+    warnings: list[str],
+) -> None:
     """Постобработка сгенерированного Pandoc FB2.
 
+    warnings - внешний, для добавления предупреждений
     Шаги: проверка секций → фикс багов Pandoc → перенос книжных элементов
     из <body> → метаданные → сортировка → fb2_description.xml → запись.
     """
@@ -581,19 +585,13 @@ def _postprocess_fb2(fb2_path: Path, config: dict, project_path: Path) -> list[s
     _sort_children_by_order(title_info, _TITLE_INFO_ORDER)
     _sort_children_by_order(doc_info, _DOC_INFO_ORDER)
 
-    warnings: list[str] = []
-
     # fb2_description.xml (template / override)
-    warnings.extend(_apply_custom_description(
-        root, project_path, config, title_info, doc_info
-    ))
+    _apply_custom_description(root, project_path, config, title_info, doc_info, warnings)
 
     # Печать финального fb2 в файл 
     fb2_cfg = config.get("fb2") or {}
     print_pretty = fb2_cfg.get("pretty_print", False)
 
-    warnings.extend(_write_fb2(tree, print_pretty, fb2_path))
-
-    return warnings
+    _write_fb2(tree, print_pretty, fb2_path, warnings)
 
 
