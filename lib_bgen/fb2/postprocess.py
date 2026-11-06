@@ -1,193 +1,19 @@
-#!/usr/bin/env python3
-"""lib_bgen: библиотека bgen (конфигурация, структура, сборка, статистика)."""
+"""FB2: постобработка сгенерированного Pandoc XML."""
 from __future__ import annotations
 
 import copy
-import re
-import subprocess
-import tempfile
 import uuid
 import xml.etree.ElementTree as ET
-from collections import Counter
 from datetime import date as date_cls
 from pathlib import Path
 
-try:
-    import yaml
-except ImportError:
-    raise ImportError("Требуется PyYAML. Установите: pip install pyyaml")
+from ..common import BgenError
 
-try:
-    from lxml import etree as lxml_etree
-except ImportError:
-    raise ImportError("Требуется lxml. Установите: pip install lxml")
+from .constants import (
+    FB2_NS, XML_NS, PROGRAM_USED,
+    _TITLE_INFO_ORDER, _DOC_INFO_ORDER,
+)
 
-PROGRAM_USED = "bgen-1.0"
-
-XML_NS = "http://www.w3.org/XML/1998/namespace"
-FB2_NS = "http://www.gribuser.ru/xml/fictionbook/2.0"
-BGEN_DIR = Path(__file__).resolve().parent
-SCHEMAS_DIR = BGEN_DIR / "schemas"
-FB2_XSD = SCHEMAS_DIR / "FictionBook.xsd"
-
-KNOWN_FORMATS = {"fb2"}
-
-# Порядок элементов по схеме FB2 (TitleInfo, DocumentInfo).
-_TITLE_INFO_ORDER = [
-    "genre", "author", "book-title", "annotation", "keywords",
-    "date", "coverpage", "lang", "src-lang", "translator", "sequence",
-]
-_DOC_INFO_ORDER = ["author", "program-used", "date", "src-url", "src-ocr", "id", "version", "history", "publisher"]
-
-class BgenError(Exception):
-    """Ошибка bgen, пригодная для показа пользователю."""
-
-
-# ============================================================
-# Конфигурация
-# ============================================================
-
-def _load_config(project_path: Path) -> dict:
-    config_path = project_path / "config.yaml"
-    if not config_path.exists():
-        raise BgenError(f"{config_path} не найден")
-    with open(config_path, encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
-
-
-def _validate_project_path(project_path: Path) -> Path:
-    project_path = project_path.resolve()
-    if not project_path.is_dir():
-        raise BgenError(f"{project_path} не директория")
-    return project_path
-
-
-def _resolve_formats(config: dict, only: str | None) -> list[str]:
-    if only:
-        formats = [f.strip() for f in only.split(",") if f.strip()]
-        unknown = [f for f in formats if f not in KNOWN_FORMATS]
-        if unknown:
-            raise BgenError(f"неизвестный формат: {', '.join(unknown)}")
-        return formats
-
-    formats = []
-    for fmt in KNOWN_FORMATS:
-        section = config.get(fmt) or {}
-        if section.get("enabled", False):
-            formats.append(fmt)
-
-    if not formats:
-        raise BgenError("не включено ни одного формата (проверьте config.yaml)")
-
-    return formats
-
-
-# ============================================================
-# Структура проекта
-# ============================================================
-
-def _get_body_files(project_path: Path) -> list[Path]:
-    body_dir = project_path / "body"
-    if not body_dir.exists():
-        raise BgenError(f"директория {body_dir} не найдена")
-    files = sorted(body_dir.rglob("*.md"))
-    if not files:
-        raise BgenError(f"в {body_dir} не найдено .md файлов")
-    return files
-
-
-# ============================================================
-# Статистика
-# ============================================================
-
-def _strip_markdown(text: str) -> str:
-    text = re.sub(r"^#+\s*", "", text, flags=re.MULTILINE)
-    text = re.sub(r"!\[.*?\]\(.*?\)", "", text)
-    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
-    text = re.sub(r"`[^`]*`", "", text)
-    text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
-    text = re.sub(r"[*_~]", "", text)
-    text = re.sub(r"^:::\s*\{[^}]*\}\s*$", "", text, flags=re.MULTILINE)
-    text = re.sub(r"^:::\s*$", "", text, flags=re.MULTILINE)
-    text = re.sub(r"\[([^\]]*)\]\{[^}]*\}", r"\1", text)  # Span
-    return text
-
-
-def _get_stat_from_md(files: list[Path]) -> dict:
-    full = "\n".join(_strip_markdown(p.read_text(encoding="utf-8")) for p in files)
-    words = re.findall(r"[A-Za-zА-Яа-яЁё]+(?:-[A-Za-zА-Яа-яЁё]+)*", full)
-    return {
-        "files": len(files),
-        "chars_with_spaces": len(full),
-        "chars_no_spaces": len(re.sub(r"\s", "", full)),
-        "words": len(words),
-    }
-
-
-# ============================================================
-# Общее
-# ============================================================
-
-def _build_pandoc_metadata(project_path: Path, config: dict, tmpdir: Path) -> tuple[Path, list[str]]:
-    warnings: list[str] = []
-    meta = dict(config.get("metadata") or {})
-    meta.setdefault("lang", "ru")
-
-    if not meta.get("title"):
-        raise BgenError("metadata.title не задан в config.yaml")
-    if not meta.get("author"):
-        raise BgenError("metadata.author не задан в config.yaml")
-
-    cover = meta.get("cover-image")
-    if cover:
-        cover_path = (project_path / cover).resolve()
-        if cover_path.exists():
-            meta["cover-image"] = str(cover_path)
-        else:
-            warnings.append(f"обложка не найдена, пропускаем: {cover_path}")
-            meta.pop("cover-image")
-
-    meta_path = tmpdir / "metadata.yaml"
-    with open(meta_path, "w", encoding="utf-8") as f:
-        yaml.dump(meta, f, allow_unicode=True, default_flow_style=False)
-    return meta_path, warnings
-
-
-# ============================================================
-# FB2-специфичное
-# ============================================================
-
-def _run_pandoc_fb2(md_files: list[Path], meta_path: Path, output: Path,
-                    resource_path: Path) -> list[str]:
-    cmd = [
-        "pandoc",
-        "--from", "markdown",
-        "--to", "fb2",
-        "--standalone",
-        "--metadata-file", str(meta_path),
-        "--resource-path", str(resource_path),
-    ]
-    filter_path = BGEN_DIR / "filter_bgen.lua"
-    if filter_path.exists():
-        cmd.extend(["--lua-filter", str(filter_path)])
-    abbrevs = BGEN_DIR / "abbrevs.txt"
-    if abbrevs.exists():
-        cmd.extend(["--abbreviations", str(abbrevs)])
-    cmd.extend(["-o", str(output)])
-    cmd.extend(str(p) for p in md_files)
-
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise BgenError(f"pandoc завершился с ошибкой:\n{result.stderr}")
-    warnings: list[str] = []
-    if result.stderr:
-        warnings.append(f"pandoc: {result.stderr.strip()}")
-    return warnings
-
-
-# ============================================================
-# Постобработка FB2
-# ============================================================
 
 def _make_book_id(config: dict) -> str:
     """Возвращает id книги: явный из fb2.id или UUID5 от title+author+lang."""
@@ -228,9 +54,9 @@ def _update_book_elements_from_body(body: ET.Element, title_info: ET.Element) ->
     из безымянных секций в <title-info> и <body> соответственно.
 
     Безымянная секция (без <title>) — признак элемента книжного уровня:
-    Pandoc оборачивает эпиграф/фронтиспис/аннотацию книги, стоящие до первого заголовка,
-    в <section> без <title>. Если секция с <title> — это эпиграф/аннотация/фронтиспис
-    главы, их не трогаем (схема FB2 это разрешает).
+    Pandoc оборачивает эпиграф/фронтиспис/аннотацию книги, стоящие до первого
+    заголовка, в <section> без <title>. Если секция с <title> — это
+    эпиграф/аннотация/фронтиспис главы, их не трогаем (схема FB2 это разрешает).
     """
     ns = {"fb": FB2_NS}
 
@@ -272,7 +98,7 @@ def _update_book_elements_from_body(body: ET.Element, title_info: ET.Element) ->
     if len(book_fronts) > 1:
         raise BgenError(
             f"в <body> может быть только один <image> (фронтиспис), "
-            f"найдено {len(book_images)}"
+            f"найдено {len(book_fronts)}"
         )
     if book_fronts:
         body.insert(0, book_fronts[0])
@@ -311,8 +137,6 @@ def _apply_custom_description(
     template — обходит ШАБЛОН; для каждого элемента, который есть и в шаблоне,
                и в сгенерированном description, заменяет содержимое шаблона
                на сгенерированное. Новых элементов не добавляет.
-               Служебные поля Pandoc (см. _PANDOC_OPTIONAL_TAGS) уже удалены
-               из сгенерированного description до вызова.
     override — заменяет <description> целиком на содержимое файла.
     """
     fb2_cfg = config.get("fb2") or {}
@@ -414,7 +238,6 @@ def _fb2_deduplicate_binaries(root: ET.Element) -> None:
     перенаправляя ссылки xlink:href на оставшийся id.
     """
     XLINK_NS = "http://www.w3.org/1999/xlink"
-    ns = {"fb": FB2_NS}
 
     # Карта: base64-содержимое -> id первого встреченного binary
     seen: dict[str, str] = {}
@@ -452,6 +275,9 @@ def _fb2_deduplicate_binaries(root: ET.Element) -> None:
 
 
 def _fix_fb2_pandoc_bugs(root: ET.Element) -> None:
+    """Исправляет известные баги Pandoc FB2-writer:
+    пустые <emphasis>/<p> после таблиц, xlink:type, дубликаты <binary>.
+    """
     # Известный баг Pandoc: пустой <emphasis /> после таблиц.
     # Именно в этом порядке! (<p><emphasis /></p>)
     # Шаг 1: пустые <emphasis>
@@ -513,8 +339,7 @@ def _write_fb2(tree: ET.ElementTree, print_pretty: bool, fb2_path: Path) -> list
     """Иерархическое форматирование XML (ET.indent) и запись файла.
 
     Возвращает список предупреждений (например, если ET.indent недоступен
-    на Python < 3.9). Запись выполняется всегда, даже если форматирование
-    пропущено.
+    на Python < 3.9). Запись выполняется всегда.
     """
     warnings: list[str] = []
 
@@ -528,8 +353,8 @@ def _write_fb2(tree: ET.ElementTree, print_pretty: bool, fb2_path: Path) -> list
     return warnings
 
 
-
 def _update_metadata_genres(fb2_cfg: dict, title_info: ET.Element) -> None:
+    """Заменяет <genre> в title-info на жанры из config.yaml (или unrecognised)."""
     ns = {"fb": FB2_NS}
 
     for g in title_info.findall("fb:genre", ns):
@@ -549,7 +374,6 @@ def _update_metadata_genres(fb2_cfg: dict, title_info: ET.Element) -> None:
                     )
             genre_el = ET.SubElement(title_info, f"{{{FB2_NS}}}genre")
             genre_el.text = name
-            match = g.get("match")
             if match is not None:
                 genre_el.set("match", str(match))
         elif isinstance(g, str):
@@ -559,10 +383,13 @@ def _update_metadata_genres(fb2_cfg: dict, title_info: ET.Element) -> None:
 
 
 def _update_metadata_authors(fb2_cfg: dict, title_info: ET.Element, doc_info: ET.Element) -> None:
+    """Обновляет title-info/author (если задано в config.yaml) и, при
+    doc-author-copy-first-from-title, копирует первого автора в document-info.
+    """
 
     def _is_valid_author_dict(a: dict) -> bool:
         """Проверяет, что словарь автора соответствует одному из вариантов FB2:
-        nickname + any, либо first-name + last-name + any.
+        nickname [+ any], либо first-name + last-name [+ any].
         """
         if a.get("nickname"):
             return True
@@ -619,15 +446,15 @@ def _update_metadata_authors(fb2_cfg: dict, title_info: ET.Element, doc_info: ET
                     f"получено {type(author).__name__}"
                 )
 
-    # document-info/author: копируем первого автора из title-info, если включено.
     copy_author = fb2_cfg.get("doc-author-copy-first-from-title", False)
     if copy_author:
-        first_title_author = title_info.find("fb:author", ns)  # find вернёт первый
+        first_title_author = title_info.find("fb:author", ns)
         if first_title_author is not None:
             doc_info.append(copy.deepcopy(first_title_author))
 
 
 def _update_metadata_title_date(fb2_cfg: dict, title_info: ET.Element) -> None:
+    """Добавляет title-info/date из fb2.title-date (строка или {value, text})."""
     title_date = fb2_cfg.get("title-date")
     if title_date:
         if isinstance(title_date, dict):
@@ -648,11 +475,12 @@ def _update_metadata_title_date(fb2_cfg: dict, title_info: ET.Element) -> None:
 
 
 def _update_metadata_sequence(fb2_cfg: dict, title_info: ET.Element) -> None:
+    """Добавляет title-info/sequence из fb2.sequence (строка или {name, number, lang})."""
     sequences = fb2_cfg.get("sequence") or []
     for seq in sequences:
         if isinstance(seq, str):
             if not seq:
-                continue  # пустая строка — пропускаем
+                continue
             ET.SubElement(title_info, f"{{{FB2_NS}}}sequence", {"name": seq})
         elif isinstance(seq, dict):
             if not seq.get("name"):
@@ -673,17 +501,18 @@ def _update_metadata_sequence(fb2_cfg: dict, title_info: ET.Element) -> None:
 
 
 def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element) -> None:
+    """Заполняет title-info и document-info значениями из config.yaml."""
     fb2_cfg = config.get("fb2") or {}
     ns = {"fb": FB2_NS}
 
-    # title-info/genre
+    # title-info/genre --- обязателен, может быть несколько и с атрибутом match
     _update_metadata_genres(fb2_cfg, title_info)
 
-    # title-info/author (детальная настройка). Если пусто — оставляем Pandoc-овского.
-    # document-info/author (копируем первого, если указано в настройках)
+    # title-info/author --- детальная настройка. Если пусто --- оставляем Pandoc-овского.
+    # document-info/author --- копируем первого из title, если указано в настройках
     _update_metadata_authors(fb2_cfg, title_info, doc_info)
 
-    # title-info/keywords (список строк через запятую)
+    # title-info/keywords --- опциональны, удобны для позиционирования наряду с жанрами, список строк через запятую
     keywords = fb2_cfg.get("keywords") or []
     if keywords:
         for old in title_info.findall("fb:keywords", ns):
@@ -691,55 +520,49 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
         kw_el = ET.SubElement(title_info, f"{{{FB2_NS}}}keywords")
         kw_el.text = ", ".join(str(k) for k in keywords)
 
-    # title-info/date
+    # title-info/date --- опциональна, но отображается в читалках, так что лучше заполнить
     _update_metadata_title_date(fb2_cfg, title_info)
 
-    # title-info/sequence (может быть несколько)
+    # title-info/sequence --- может быть несколько
     _update_metadata_sequence(fb2_cfg, title_info)
 
-    # document-info требует <author>. Копируем из title-info, если своего нет.
-    if doc_info.find("fb:author", ns) is None:
-        title_author = title_info.find("fb:author", ns)
-        if title_author is not None:
-            doc_info.append(copy.deepcopy(title_author))
-
-    # document-info program-used pandoc генерирует свой, но мы пишем себя, так как включаем постобработку
+    # document-info/program-used --- pandoc генерирует свой, но мы пишем себя, так как включаем постобработку
     program_el = doc_info.find("fb:program-used", ns)
     if program_el is None:
         program_el = ET.SubElement(doc_info, f"{{{FB2_NS}}}program-used")
     program_el.text = PROGRAM_USED
 
-    # document-info нужен id
+    # document-info/id --- обязателен
     book_id = _make_book_id(config)
     id_el = doc_info.find("fb:id", ns)
     if id_el is None:
         id_el = ET.SubElement(doc_info, f"{{{FB2_NS}}}id")
     id_el.text = book_id
 
-    # document-info version обязательна
+    # document-info/version --- обязательна
     version_val = fb2_cfg.get("version") or "1.0"
     version_el = doc_info.find("fb:version", ns)
     if version_el is None:
         version_el = ET.SubElement(doc_info, f"{{{FB2_NS}}}version")
     version_el.text = str(version_val)
 
-    # document-info Дата
+    # document-info/date --- обязательна
     date_val = fb2_cfg.get("date") or date_cls.today().isoformat()
     for old in doc_info.findall("fb:date", ns):
         doc_info.remove(old)
     ET.SubElement(doc_info, f"{{{FB2_NS}}}date", {"value": date_val}).text = date_val
 
 
-def _postprocess_fb2(
-    fb2_path: Path,
-    config: dict,
-    project_path: Path,
-) -> list[str]:
+def _postprocess_fb2(fb2_path: Path, config: dict, project_path: Path) -> list[str]:
+    """Постобработка сгенерированного Pandoc FB2.
+
+    Шаги: проверка секций → фикс багов Pandoc → перенос книжных элементов
+    из <body> → метаданные → сортировка → fb2_description.xml → запись.
+    """
     ET.register_namespace("", FB2_NS)
 
     tree = ET.parse(fb2_path)
     root = tree.getroot()
-    ns = {"fb": FB2_NS}
 
     # Проверяем нужные нам для работы элементы структуры fb2 и получаем их из дерева
     title_info, doc_info, body = _check_fb2_affecting_sections(root)
@@ -756,8 +579,6 @@ def _postprocess_fb2(
 
     # Приводим порядок в соответствие со схемой FB2
     _sort_children_by_order(title_info, _TITLE_INFO_ORDER)
-
-    # Приводим порядок в соответствие со схемой FB2
     _sort_children_by_order(doc_info, _DOC_INFO_ORDER)
 
     warnings: list[str] = []
@@ -774,104 +595,5 @@ def _postprocess_fb2(
     warnings.extend(_write_fb2(tree, print_pretty, fb2_path))
 
     return warnings
-
-
-# ============================================================
-# Валидация FB2 по XSD
-# ============================================================
-
-def _validate_fb2(fb2_path: Path) -> list[str]:
-    """Валидация FB2 по XSD. Возвращает список сообщений об ошибках.
-
-    Если XSD-файл не найден — BgenError: без схемы валидация бессмысленна.
-    """
-    if not FB2_XSD.exists():
-        raise BgenError(
-            f"XSD-схема FB2 не найдена: {FB2_XSD}. "
-            f"Положите FictionBook.xsd и связанные схемы в {SCHEMAS_DIR}"
-        )
-
-    try:
-        schema_doc = lxml_etree.parse(str(FB2_XSD))
-        schema = lxml_etree.XMLSchema(schema_doc)
-    except lxml_etree.XMLSchemaParseError as e:
-        raise BgenError(f"не удалось загрузить XSD-схему {FB2_XSD}: {e}")
-
-    try:
-        doc = lxml_etree.parse(str(fb2_path))
-    except lxml_etree.XMLSyntaxError as e:
-        return [f"FB2 не является well-formed XML: {e}"]
-
-    if schema.validate(doc):
-        return []
-
-    errors = []
-    for err in schema.error_log:
-        errors.append(f"XSD: строка {err.line}, столбец {err.column}: {err.message}")
-    return errors
-
-
-# ============================================================
-# Сборка FB2
-# ============================================================
-
-def _build_fb2(
-    project_path: Path,
-    config: dict,
-    output_dir: Path,
-) -> tuple[Path, list[str]]:
-    fb2_cfg = config.get("fb2") or {}
-    output_name = fb2_cfg.get("output_name", "book.fb2")
-    output_path = output_dir / output_name
-
-    md_files = _get_body_files(project_path)
-
-    warnings: list[str] = []
-    with tempfile.TemporaryDirectory() as tmp:
-        tmpdir = Path(tmp)
-        meta_path, meta_warnings = _build_pandoc_metadata(project_path, config, tmpdir)
-        warnings.extend(meta_warnings)
-        warnings.extend(_run_pandoc_fb2(md_files, meta_path, output_path, project_path))
-
-    # pandoc формирует fb2 со множеством проблем, поэтому требуется постобработка
-    warnings.extend(_postprocess_fb2(output_path, config, project_path))
-
-    xsd_errors = _validate_fb2(output_path)
-    if xsd_errors:
-        error_text = "\n".join(xsd_errors)
-        raise BgenError(f"FB2 не прошёл валидацию по XSD:\n{error_text}")
-
-    return output_path, warnings
-
-
-# ============================================================
-# Высокоуровневые команды
-# ============================================================
-
-def stat(project_path: Path) -> dict | None:
-    project_path = _validate_project_path(project_path)
-    files = _get_body_files(project_path)
-    return _get_stat_from_md(files)
-
-
-def build(project_path: Path, only: str | None = None) -> list[tuple[str, Path, list[str]]]:
-    project_path = _validate_project_path(project_path)
-    config = _load_config(project_path)
-
-    formats = _resolve_formats(config, only)
-
-    output_dir = project_path / config.get("output_dir", "output")
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    results: list[tuple[str, Path, list[str]]] = []
-    for fmt in formats:
-        if fmt == "fb2":
-            output_path, warnings = _build_fb2(
-                project_path, config, output_dir
-            )
-            results.append((fmt, output_path, warnings))
-        else:
-            raise BgenError(f"формат {fmt} ещё не реализован")
-    return results
 
 
