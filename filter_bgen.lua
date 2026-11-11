@@ -125,6 +125,10 @@ local function Div(el)
       local div = pandoc.Div(pandoc.Para("* * *"))
       div.attributes["custom-style"] = "Asterism"
       return div
+    elseif classes["gap"] then
+      local div = pandoc.Div({pandoc.Para({})})
+      div.attributes["custom-style"] = "Gap"
+      return div
     end
     return nil
   end
@@ -156,6 +160,12 @@ local function Div(el)
     return pandoc.RawBlock("fb2", "<epigraph>" .. inner .. "</epigraph>")
   end
 
+  -- .text-author: автор эпиграфа
+  if classes["text-author"] then
+    local text = pandoc.utils.stringify(el.content)
+    return pandoc.RawBlock("fb2", "<text-author>" .. text .. "</text-author>")
+  end
+
   -- .subtitle: смысловой разделитель внутри секции
   if classes["subtitle"] then
     local processed = pandoc.walk_block(el, { Div = Div })
@@ -173,10 +183,11 @@ local function Div(el)
     }
   end
 
-  -- .text-author: автор эпиграфа
-  if classes["text-author"] then
-    local text = pandoc.utils.stringify(el.content)
-    return pandoc.RawBlock("fb2", "<text-author>" .. text .. "</text-author>")
+  -- .asterism: сильный разделитель
+  if classes["gap"] then
+    return {
+      pandoc.RawBlock("fb2", "<empty-line/>"),
+    }
   end
 
   return nil

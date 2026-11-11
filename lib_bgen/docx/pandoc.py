@@ -47,7 +47,7 @@ def _run_pandoc_docx(
     cmd = [
         "pandoc",
         "--from", "markdown",
-        "--to", "docx",
+        "--to", "docx+empty_paragraphs",
         "--standalone",
         "--metadata-file", str(meta_path),
         "--resource-path", str(resource_path),
