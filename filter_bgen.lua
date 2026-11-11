@@ -193,5 +193,17 @@ local function Div(el)
   return nil
 end
 
-return { { Div = Div, Span = Span } }
+-- LineBlock (стихи через |): для DOCX оборачиваем в Div с custom-style="Poem",
+-- чтобы Pandoc применил стиль Poem из reference.docx.
+-- Для FB2 не трогаем (Pandoc сам делает <poem><stanza><v>).
+local function LineBlock(el)
+  if FORMAT == "docx" then
+    local div = pandoc.Div({el})
+    div.attributes["custom-style"] = "Poem"
+    return div
+  end
+  return nil
+end
+
+return { { Div = Div, Span = Span, LineBlock = LineBlock} }
 
