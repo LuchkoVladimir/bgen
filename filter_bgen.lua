@@ -63,13 +63,25 @@ end
 -- .qq -> „…“ (внутренние лапки)
 -- Вложенность не отслеживается: автор сам выбирает класс по уровню.
 local function Span(el)
-  if FORMAT ~= "fb2" then
-    return nil
-  end
-
   local classes = {}
   for _, c in ipairs(el.classes) do
     classes[c] = true
+  end
+
+  -- DOCX: custom-style для кавычек
+  if FORMAT == "docx" then
+    if classes["q"] then
+      local inner = pandoc.Span(el.content, {["custom-style"] = "Quotes"})
+      return {pandoc.Str("«"), inner, pandoc.Str("»")}
+    elseif classes["qq"] then
+      local inner = pandoc.Span(el.content, {["custom-style"] = "Quotes"})
+      return {pandoc.Str("„"), inner, pandoc.Str("“")}
+    end
+    return nil
+  end
+
+  if FORMAT ~= "fb2" then
+    return nil
   end
 
   local open_q, close_q
@@ -90,13 +102,35 @@ local function Span(el)
 end
 
 local function Div(el)
-  if FORMAT ~= "fb2" then
-    return nil
-  end
-
   local classes = {}
   for _, c in ipairs(el.classes) do
     classes[c] = true
+  end
+
+  -- DOCX: custom-style для стилей из reference.docx
+  if FORMAT == "docx" then
+    if classes["epigraph"] then
+      el.attributes["custom-style"] = "Epigraph"
+      return el
+    elseif classes["text-author"] then
+      el.attributes["custom-style"] = "EpigraphAuthor"
+      return el
+    elseif classes["annotation"] then
+      el.attributes["custom-style"] = "Abstract"
+      return el
+    elseif classes["subtitle"] then
+      el.attributes["custom-style"] = "Subtitle"
+      return el
+    elseif classes["asterism"] then
+      local div = pandoc.Div(pandoc.Para("* * *"))
+      div.attributes["custom-style"] = "Asterism"
+      return div
+    end
+    return nil
+  end
+
+  if FORMAT ~= "fb2" then
+    return nil
   end
 
   -- .annotation: аннотация секции

@@ -166,12 +166,20 @@ fb2:
   # publisher     0-n (<.>) -- [xml] Правообладатель как у автора теги
 
 
+# ------------------------------------------------------------
+# EPUB (не реализовано)
+# ------------------------------------------------------------
 # epub:
-#   enabled: true
+#   enabled: false
 #   output_name: book.epub
-#
-# docx:
-#   enabled: true
-#   output_name: book.docx
-#   reference_doc: templates/reference.docx
+
+# ------------------------------------------------------------
+# DOCX
+# ------------------------------------------------------------
+docx:
+  enabled: true
+  output_name: book.docx
+  # Путь к reference.docx относительно корня проекта.
+  # Если пусто — используется bgen/reference.docx (дефолтный).
+  reference_doc: ""
 

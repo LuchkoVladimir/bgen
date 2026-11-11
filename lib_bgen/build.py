@@ -35,6 +35,10 @@ def build(
             from .fb2.build import _build_fb2
             output_path = _build_fb2(project_path, config, output_dir, warnings)
             results.append((fmt, output_path))
+        elif fmt == "docx":
+            from .docx.build import _build_docx
+            output_path = _build_docx(project_path, config, output_dir, warnings)
+            results.append((fmt, output_path))
         else:
             raise BgenError(f"формат {fmt} ещё не реализован")
     return results
