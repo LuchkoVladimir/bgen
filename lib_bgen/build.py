@@ -39,6 +39,10 @@ def build(
             from .docx.build import _build_docx
             output_path = _build_docx(project_path, config, output_dir, warnings)
             results.append((fmt, output_path))
+        elif fmt == "epub":
+            from .epub.build import _build_epub
+            output_path = _build_epub(project_path, config, output_dir, warnings)
+            results.append((fmt, output_path))
         else:
             raise BgenError(f"формат {fmt} ещё не реализован")
     return results

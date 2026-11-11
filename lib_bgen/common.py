@@ -8,7 +8,7 @@ PROGRAM_VERSION = "1.0"
 BGEN_DIR = Path(__file__).resolve().parent.parent
 SCHEMAS_DIR = BGEN_DIR / "schemas"
 
-KNOWN_FORMATS = {"fb2", "docx"}
+KNOWN_FORMATS = {"fb2", "docx", "epub"}
 
 
 class BgenError(Exception):

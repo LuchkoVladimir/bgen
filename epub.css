@@ -1,0 +1,48 @@
+/* bgen: дефолтный CSS для EPUB.
+ * Классы соответствуют filter_bgen.lua (Div/Span) и Pandoc.
+ * Переопределение: config.yaml → epub.css: path/to/epub.css
+ */
+
+/* Эпиграф (книги или главы) */
+.epigraph {
+  font-style: italic;
+  margin: 1em 2em;
+  text-align: right;
+}
+
+/* Аннотация (Abstract) */
+.annotation {
+  font-size: 0.9em;
+  color: #555;
+  margin: 1em 0;
+}
+
+/* Субтитр (смысловой разделитель внутри главы) */
+.subtitle {
+  font-weight: bold;
+  text-align: center;
+  margin: 1.5em 0;
+}
+
+/* Астеризм (сильный разделитель) */
+.asterism {
+  text-align: center;
+  margin: 1.5em 0;
+}
+
+/* Gap (слабый разделитель) */
+.gap {
+  height: 0.5em;
+}
+
+/* Кавычки (.q / .qq) — сам текст с кавычками приходит из фильтра */
+.q, .qq {
+  font-style: normal;
+}
+
+/* Автор эпиграфа */
+.text-author {
+  font-style: normal;
+  text-align: right;
+  margin-top: 0.5em;
+}

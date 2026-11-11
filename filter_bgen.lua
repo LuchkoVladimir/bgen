@@ -80,6 +80,16 @@ local function Span(el)
     return nil
   end
 
+  -- EPUB: кавычки в текст (как для FB2), без custom-style
+  if FORMAT:match("epub") then
+    if classes["q"] then
+      return {pandoc.Str("«"), pandoc.Span(el.content), pandoc.Str("»")}
+    elseif classes["qq"] then
+      return {pandoc.Str("„"), pandoc.Span(el.content), pandoc.Str("“")}
+    end
+    return nil
+  end
+
   if FORMAT ~= "fb2" then
     return nil
   end
