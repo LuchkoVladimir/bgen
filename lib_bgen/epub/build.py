@@ -48,12 +48,13 @@ def _build_epub(
         warnings.append(f"CSS не найден: {css_path}. Используется дефолтный.")
         css_path = None
 
+    toc = epub_cfg.get("toc", False)
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
         meta_path = _build_epub_metadata(project_path, config, tmpdir, warnings)
         _run_pandoc_epub(
             md_files, meta_path, output_path, project_path,
-            cover_path, css_path, warnings,
+            cover_path, css_path, toc, warnings,
         )
 
     return output_path

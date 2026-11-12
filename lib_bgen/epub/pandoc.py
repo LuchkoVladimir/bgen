@@ -43,6 +43,7 @@ def _run_pandoc_epub(
     resource_path: Path,
     cover_path: Path | None,
     css_path: Path | None,
+    toc: bool,
     warnings: list[str],
 ) -> None:
     """Вызывает Pandoc для сборки EPUB3 (cover, css, filter, abbrevs)."""
@@ -54,6 +55,8 @@ def _run_pandoc_epub(
         "--metadata-file", str(meta_path),
         "--resource-path", str(resource_path),
     ]
+    if toc:
+        cmd.append("--toc")
     if cover_path is not None and cover_path.exists():
         cmd.extend(["--epub-cover-image", str(cover_path)])
     if css_path is not None and css_path.exists():
