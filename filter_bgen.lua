@@ -83,9 +83,19 @@ local function Span(el)
   -- EPUB: кавычки в текст (как для FB2), без custom-style
   if FORMAT:match("epub") then
     if classes["q"] then
-      return {pandoc.Str("«"), pandoc.Span(el.content), pandoc.Str("»")}
+      local result = {pandoc.Str("«")}
+      for _, inline in ipairs(el.content) do
+        table.insert(result, inline)
+      end
+      table.insert(result, pandoc.Str("»"))
+      return result
     elseif classes["qq"] then
-      return {pandoc.Str("„"), pandoc.Span(el.content), pandoc.Str("“")}
+      local result = {pandoc.Str("„")}
+      for _, inline in ipairs(el.content) do
+        table.insert(result, inline)
+      end
+      table.insert(result, pandoc.Str("“"))
+      return result
     end
     return nil
   end
@@ -115,6 +125,16 @@ local function Div(el)
   local classes = {}
   for _, c in ipairs(el.classes) do
     classes[c] = true
+  end
+
+  -- EPUB: asterism
+  if FORMAT:match("epub") then
+    if classes["asterism"] then
+      local div = pandoc.Div(pandoc.Para("* * *"))
+      div.attributes["class"] = "asterism"
+      return div
+    end
+    return nil
   end
 
   -- DOCX: custom-style для стилей из reference.docx
@@ -207,6 +227,12 @@ end
 -- чтобы Pandoc применил стиль Poem из reference.docx.
 -- Для FB2 не трогаем (Pandoc сам делает <poem><stanza><v>).
 local function LineBlock(el)
+  if FORMAT:match("epub") then
+    local div = pandoc.Div({el})
+    div.attributes["class"] = "poem"
+    return div
+  end
+
   if FORMAT == "docx" then
     local div = pandoc.Div({el})
     div.attributes["custom-style"] = "Poem"

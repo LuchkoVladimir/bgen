@@ -3,6 +3,13 @@
  * Переопределение: config.yaml → epub.css: path/to/epub.css
  */
 
+/* Аннотация (Abstract) */
+.annotation {
+  font-size: 0.9em;
+  color: #555;
+  margin: 1em 0;
+}
+
 /* Эпиграф (книги или главы) */
 .epigraph {
   font-style: italic;
@@ -10,11 +17,11 @@
   text-align: right;
 }
 
-/* Аннотация (Abstract) */
-.annotation {
-  font-size: 0.9em;
-  color: #555;
-  margin: 1em 0;
+/* Автор эпиграфа */
+.text-author {
+  font-style: normal;
+  text-align: right;
+  margin-top: 0.5em;
 }
 
 /* Субтитр (смысловой разделитель внутри главы) */
@@ -35,14 +42,15 @@
   height: 0.5em;
 }
 
+/* Стихи */
+.poem {
+  font-style: italic;
+  margin: 1em 0;
+  text-align: left;
+}
+
 /* Кавычки (.q / .qq) — сам текст с кавычками приходит из фильтра */
 .q, .qq {
   font-style: normal;
 }
 
-/* Автор эпиграфа */
-.text-author {
-  font-style: normal;
-  text-align: right;
-  margin-top: 0.5em;
-}
