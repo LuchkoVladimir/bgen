@@ -1,6 +1,6 @@
-# BookGenerator: bgen
+# BookGenerator - bgen
 
-Генератор цифровых книг из Markdown. Собирает FB2 (в перспективе — EPUB/DOCX),
+Генератор цифровых книг из Markdown. Собирает FB2/EPUB/DOCX),
 дополняя Pandoc постобработкой: эпиграфы, аннотации, кавычки, фронтиспис,
 `document-info` и т.д. — то, что Pandoc не умеет или делает невалидно.
 
@@ -24,13 +24,13 @@ bgen распространяется как дистрибутив: `bgen.py`, 
 
 ## Быстрый старт
 
-```bash
 cp -r project_sample mybook
 cd mybook
-# отредактировать config.yaml и текст в body/
+
+отредактировать config.yaml и текст в body/
+
 ./bgen.py build <path_to_project>
 ./bgen.py stat <path_to_project>
-```
 
 Результат — output/book.fb2.
 
