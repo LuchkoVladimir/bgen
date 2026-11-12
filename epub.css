@@ -3,6 +3,17 @@
  * Переопределение: config.yaml → epub.css: path/to/epub.css
  */
 
+/* Фронтиспис - картинка перед первой страницей */
+.frontispiece {
+    page-break-before: always;
+    text-align: center;
+    margin-top: 2em;
+}
+.frontispiece img {
+    max-width: 100%;
+    height: auto;
+}
+
 /* Аннотация (Abstract) */
 .annotation {
   font-size: 0.9em;
