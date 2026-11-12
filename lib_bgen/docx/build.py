@@ -38,11 +38,12 @@ def _build_docx(
             f"Стили (Epigraph, Annotation и т.д.) не будут применены."
         )
 
+    toc = docx_cfg.get("toc", False)
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
         meta_path = _build_docx_metadata(project_path, config, tmpdir, warnings)
         _run_pandoc_docx(
-            md_files, meta_path, output_path, project_path, ref_path, warnings
+            md_files, meta_path, output_path, project_path, ref_path, toc, warnings
         )
 
     return output_path

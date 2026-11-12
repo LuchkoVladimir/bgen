@@ -190,4 +190,5 @@ docx:
   # Путь к reference.docx относительно корня проекта.
   # Если пусто — используется bgen/reference.docx (дефолтный).
   reference_doc: ""
+  toc: true
 

@@ -41,6 +41,7 @@ def _run_pandoc_docx(
     output: Path,
     resource_path: Path,
     reference_doc: Path,
+    toc: bool,
     warnings: list[str],
 ) -> None:
     """Вызывает Pandoc для сборки DOCX с reference.docx."""
@@ -53,6 +54,8 @@ def _run_pandoc_docx(
         "--resource-path", str(resource_path),
         "--reference-doc", str(reference_doc),
     ]
+    if toc:
+        cmd.append("--toc")
     filter_path = BGEN_DIR / "filter_bgen.lua"
     if filter_path.exists():
         cmd.extend(["--lua-filter", str(filter_path)])
