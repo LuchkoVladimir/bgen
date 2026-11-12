@@ -68,42 +68,6 @@ local function Span(el)
     classes[c] = true
   end
 
-  -- DOCX: custom-style для кавычек
-  if FORMAT == "docx" then
-    if classes["q"] then
-      local inner = pandoc.Span(el.content, {["custom-style"] = "Quotes"})
-      return {pandoc.Str("«"), inner, pandoc.Str("»")}
-    elseif classes["qq"] then
-      local inner = pandoc.Span(el.content, {["custom-style"] = "Quotes"})
-      return {pandoc.Str("„"), inner, pandoc.Str("“")}
-    end
-    return nil
-  end
-
-  -- EPUB: кавычки в текст (как для FB2), без custom-style
-  if FORMAT:match("epub") then
-    if classes["q"] then
-      local result = {pandoc.Str("«")}
-      for _, inline in ipairs(el.content) do
-        table.insert(result, inline)
-      end
-      table.insert(result, pandoc.Str("»"))
-      return result
-    elseif classes["qq"] then
-      local result = {pandoc.Str("„")}
-      for _, inline in ipairs(el.content) do
-        table.insert(result, inline)
-      end
-      table.insert(result, pandoc.Str("“"))
-      return result
-    end
-    return nil
-  end
-
-  if FORMAT ~= "fb2" then
-    return nil
-  end
-
   local open_q, close_q
   if classes["q"] then
     open_q, close_q = "«", "»"
