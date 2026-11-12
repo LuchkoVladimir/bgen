@@ -5,9 +5,9 @@
 
 /* Фронтиспис - картинка перед первой страницей */
 .frontispiece {
-    page-break-before: always;
+    page-break-after: always;
     text-align: center;
-    margin-top: 2em;
+    margin: 1em 0;
 }
 .frontispiece img {
     max-width: 100%;
@@ -49,19 +49,17 @@
 }
 
 /* Gap (слабый разделитель) */
+.gap::before {
+  content: "\00a0";  /* неразрывный пробел, чтобы div имел высоту */
+}
 .gap {
-  height: 0.5em;
+    height: 0.5em;
 }
 
 /* Стихи */
 .poem {
   font-style: italic;
-  margin: 1em 0;
+  margin-left: 2em;
   text-align: left;
-}
-
-/* Кавычки (.q / .qq) — сам текст с кавычками приходит из фильтра */
-.q, .qq {
-  font-style: normal;
 }
 
