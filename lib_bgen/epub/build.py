@@ -28,16 +28,6 @@ def _build_epub(
 
     md_files = _get_body_files(project_path)
 
-    # Обложка: из metadata.cover-image (тот же, что для FB2)
-    meta_cfg = config.get("metadata") or {}
-    cover_rel = meta_cfg.get("cover-image")
-    cover_path = None
-    if cover_rel:
-        cover_path = (project_path / cover_rel).resolve()
-        if not cover_path.exists():
-            warnings.append(f"обложка не найдена: {cover_path}")
-            cover_path = None
-
     # CSS: из config (epub.css) или bgen/epub.css
     css_rel = epub_cfg.get("css")
     if css_rel:
@@ -48,12 +38,16 @@ def _build_epub(
         warnings.append(f"CSS не найден: {css_path}. Используется дефолтный.")
         css_path = None
 
+    # build table of contents
     toc = epub_cfg.get("toc", False)
+
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
-        meta_path = _build_epub_metadata(project_path, config, tmpdir, warnings)
+        meta_path, epub_meta_xml_path, epub_meta_addon_path, cover_path = _build_epub_metadata(
+                project_path, config, tmpdir, warnings,
+        )
         _run_pandoc_epub(
-            md_files, meta_path, output_path, project_path,
+            md_files, meta_path, epub_meta_addon_path, epub_meta_xml_path, output_path, project_path,
             cover_path, css_path, toc, warnings,
         )
 
