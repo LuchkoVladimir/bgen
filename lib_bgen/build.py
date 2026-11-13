@@ -43,6 +43,10 @@ def build(
             from .epub.build import _build_epub
             output_path = _build_epub(project_path, config, output_dir, warnings)
             results.append((fmt, output_path))
+        elif fmt == "txt":
+            from .txt.build import _build_txt
+            output_path = _build_txt(project_path, config, output_dir, warnings)
+            results.append((fmt, output_path))
         else:
             raise BgenError(f"формат {fmt} ещё не реализован")
     return results

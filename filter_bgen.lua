@@ -127,6 +127,16 @@ local function Div(el)
     return nil
   end
 
+  -- TXT: asterism и gap
+  if FORMAT == "plain" then
+    if classes["asterism"] then
+      return pandoc.Para(pandoc.Str("* * *"))
+    elseif classes["gap"] then
+      return pandoc.Para(pandoc.Str("- -"))
+    end
+    return nil
+  end
+
   if FORMAT ~= "fb2" then
     return nil
   end
