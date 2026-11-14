@@ -43,6 +43,7 @@ def _run_pandoc_docx(
     reference_doc: Path,
     config: dict,
     toc: bool,
+    env: dict,
     warnings: list[str],
 ) -> None:
     """Вызывает Pandoc для сборки DOCX с reference.docx."""
@@ -70,7 +71,7 @@ def _run_pandoc_docx(
     cmd.extend(["-o", str(output)])
     cmd.extend(str(p) for p in md_files)
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, env=env)
     if result.returncode != 0:
         raise BgenError(f"pandoc завершился с ошибкой:\n{result.stderr}")
     if result.stderr:

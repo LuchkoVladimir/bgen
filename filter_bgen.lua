@@ -1,5 +1,109 @@
 -- filter_bgen.lua
 -- Превращает fenced div'ы bgen в FB2-теги для writer'а fb2.
+-- Также обрабатывает Span (типографика: [min]{.t}, [текст]{.q} и т.д.)
+
+-- ============================================================
+-- Типографика: читает typography.txt (separator=:)
+-- ============================================================
+
+local _typography = nil
+
+local function load_typography()
+  local path = os.getenv("BGEN_TYPOGRAPHY")
+  if not path or path == "" then
+    local script_dir = debug.getinfo(1, "S").source:match("@(.*[/\\])")
+    path = (script_dir or "") .. "typography.txt"
+  end
+
+  local f = io.open(path, "r")
+  if not f then
+    io.stderr:write("filter_bgen.lua: не найден " .. path .. "\n")
+    return {}
+  end
+
+  local sep = nil
+  local entries = {}
+
+
+  for line in f:lines() do
+    if line:match("^%s*#") or line:match("^%s*$") then
+      goto continue
+    end
+    local s = line:match("^separator=(.)%s*$")
+    if s then
+      sep = s
+      goto continue
+    end
+    if not sep then
+      goto continue
+    end
+
+    local parts = {}
+    for part in (line .. sep):gmatch("(.-)" .. sep) do
+      table.insert(parts, part)
+    end
+
+    if #parts == 2 then
+      local key, value = parts[1], parts[2]
+      if key and value and key ~= "" then
+        entries[key] = { kind = "single", value = value }
+      end
+    elseif #parts == 3 then
+      local key, open_q, close_q = parts[1], parts[2], parts[3]
+      if key and open_q and close_q and key ~= "" then
+        entries[key] = { kind = "pair", open_q = open_q, close_q = close_q }
+      end
+    end
+
+    ::continue::
+  end
+  f:close()
+  return entries
+end
+
+local function get_typography()
+  if _typography == nil then
+    _typography = load_typography()
+  end
+  return _typography
+end
+
+-- Span: типографика.
+-- .t — одиночная замена: [min]{.t} → − (текст = ключ в typography.txt).
+-- .q/.qq/.qqq — парная замена: [текст]{.q} → «текст».
+local function Span(el)
+  local entries = get_typography()
+  if not entries then return nil end
+
+  local classes = {}
+  for _, c in ipairs(el.classes) do
+    classes[c] = true
+  end
+
+  -- .t: одиночная замена (текст = ключ)
+  if classes["t"] then
+    local text = pandoc.utils.stringify(el.content)
+    local entry = entries[text]
+    if entry and entry.kind == "single" then
+      return pandoc.Str(entry.value)
+    end
+    return nil
+  end
+
+  -- Парные: [текст]{.key} → open + content + close
+  for key, entry in pairs(entries) do
+    if classes[key] and entry.kind == "pair" then
+      local result = { pandoc.Str(entry.open_q) }
+      for _, inline in ipairs(el.content) do
+        table.insert(result, inline)
+      end
+      table.insert(result, pandoc.Str(entry.close_q))
+      return result
+    end
+  end
+  return nil
+end
+
 
 -- Разворачивает верхнеуровневую <section> внутри контейнера (epigraph/annotation):
 -- запоминает содержимое section, кладёт его на место родителя.
@@ -56,33 +160,6 @@ local function render_blocks(blocks)
     end
   end
   return table.concat(parts, "\n")
-end
-
--- .q и .qq: замена Span на русские кавычки.
--- .q -> «…» (внешние ёлочки)
--- .qq -> „…“ (внутренние лапки)
--- Вложенность не отслеживается: автор сам выбирает класс по уровню.
-local function Span(el)
-  local classes = {}
-  for _, c in ipairs(el.classes) do
-    classes[c] = true
-  end
-
-  local open_q, close_q
-  if classes["q"] then
-    open_q, close_q = "«", "»"
-  elseif classes["qq"] then
-    open_q, close_q = "„", "“"
-  else
-    return nil
-  end
-
-  local result = { pandoc.Str(open_q) }
-  for _, inline in ipairs(el.content) do
-    table.insert(result, inline)
-  end
-  table.insert(result, pandoc.Str(close_q))
-  return result
 end
 
 local function Div(el)
@@ -215,5 +292,5 @@ local function LineBlock(el)
   return nil
 end
 
-return { { Div = Div, Span = Span, LineBlock = LineBlock} }
+return { { Div = Div, Span = Span, LineBlock = LineBlock } }
 

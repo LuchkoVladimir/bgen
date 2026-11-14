@@ -1,10 +1,27 @@
 """Диспетчер сборки: выбирает формат и вызывает его сборщик."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
-from .common import BgenError
+from .common import BgenError, TYPOGRAPHY_FILE
 from .project import _load_config, _resolve_formats, _validate_project_path
+
+
+def _make_pandoc_env(project_path: Path, config: dict) -> dict:
+    """Окружение для всех вызовов Pandoc в сессии.
+
+    BGEN_TYPOGRAPHY — путь к typography.txt:
+      config.yaml: typography (если задан)
+      иначе → bgen/typography.txt (TYPOGRAPHY_FILE).
+    """
+    env = os.environ.copy()
+    typography_rel = config.get("typography", "")
+    if typography_rel:
+        env["BGEN_TYPOGRAPHY"] = str((project_path / typography_rel).resolve())
+    else:
+        env["BGEN_TYPOGRAPHY"] = str(TYPOGRAPHY_FILE)
+    return env
 
 
 def build(
@@ -29,23 +46,25 @@ def build(
     output_dir = project_path / config.get("output_dir", "output")
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    env = _make_pandoc_env(project_path, config)
+
     results: list[tuple[str, Path]] = []
     for fmt in formats:
         if fmt == "fb2":
             from .fb2.build import _build_fb2
-            output_path = _build_fb2(project_path, config, output_dir, warnings)
+            output_path = _build_fb2(project_path, config, output_dir, env, warnings)
             results.append((fmt, output_path))
         elif fmt == "docx":
             from .docx.build import _build_docx
-            output_path = _build_docx(project_path, config, output_dir, warnings)
+            output_path = _build_docx(project_path, config, output_dir, env, warnings)
             results.append((fmt, output_path))
         elif fmt == "epub":
             from .epub.build import _build_epub
-            output_path = _build_epub(project_path, config, output_dir, warnings)
+            output_path = _build_epub(project_path, config, output_dir, env, warnings)
             results.append((fmt, output_path))
         elif fmt == "txt":
             from .txt.build import _build_txt
-            output_path = _build_txt(project_path, config, output_dir, warnings)
+            output_path = _build_txt(project_path, config, output_dir, env, warnings)
             results.append((fmt, output_path))
         else:
             raise BgenError(f"формат {fmt} ещё не реализован")

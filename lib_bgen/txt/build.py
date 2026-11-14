@@ -32,6 +32,7 @@ def _build_txt(
     project_path: Path,
     config: dict,
     output_dir: Path,
+    env: dict,
     warnings: list[str],
 ) -> Path:
     """Собирает TXT (plain): pandoc -t plain --columns N --wrap W.
@@ -51,7 +52,7 @@ def _build_txt(
     md_files = _get_body_files(project_path)
 
     _run_pandoc_txt(
-        md_files, output_path, project_path, columns, wrap, config, warnings,
+        md_files, output_path, project_path, columns, wrap, config, env, warnings,
     )
 
     if card:

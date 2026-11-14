@@ -52,6 +52,7 @@ def _run_pandoc_fb2(
     output: Path,
     resource_path: Path,
     config: dict,
+    env: dict,
     warnings: list[str],
 ) -> None:
     """Вызывает Pandoc для сборки FB2."""
@@ -76,7 +77,7 @@ def _run_pandoc_fb2(
     cmd.extend(["-o", str(output)])
     cmd.extend(str(p) for p in md_files)
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, env=env)
     if result.returncode != 0:
         raise BgenError(f"pandoc завершился с ошибкой:\n{result.stderr}")
     if result.stderr:

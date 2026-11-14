@@ -14,6 +14,7 @@ def _build_docx(
     project_path: Path,
     config: dict,
     output_dir: Path,
+    env: dict,
     warnings: list[str],
 ) -> Path:
     """Собирает DOCX: pandoc + reference.docx.
@@ -48,7 +49,7 @@ def _build_docx(
         if keep_metadata:
             shutil.copy(meta_path, output_dir / "docx_metadata.yaml")
         _run_pandoc_docx(
-            md_files, meta_path, output_path, project_path, ref_path, config, toc, warnings
+            md_files, meta_path, output_path, project_path, ref_path, config, toc, env, warnings
         )
 
     return output_path

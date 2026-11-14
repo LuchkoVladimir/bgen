@@ -14,6 +14,7 @@ def _run_pandoc_txt(
     columns: int,
     wrap: str,
     config: dict,
+    env: dict,
     warnings: list[str],
 ) -> None:
     """Вызывает Pandoc: -t plain --columns N --wrap W.
@@ -43,7 +44,7 @@ def _run_pandoc_txt(
     cmd.extend(["-o", str(output)])
     cmd.extend(str(p) for p in md_files)
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, env=env)
     if result.returncode != 0:
         raise BgenError(f"pandoc завершился с ошибкой:\n{result.stderr}")
     if result.stderr:

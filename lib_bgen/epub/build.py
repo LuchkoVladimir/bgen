@@ -14,6 +14,7 @@ def _build_epub(
     project_path: Path,
     config: dict,
     output_dir: Path,
+    env: dict,
     warnings: list[str],
 ) -> Path:
     """Собирает EPUB: pandoc + обложка (metadata.cover-image) + CSS.
@@ -55,7 +56,7 @@ def _build_epub(
                 shutil.copy(epub_meta_addon_path, output_dir / "epub_addon_metadata.yaml")
         _run_pandoc_epub(
             md_files, meta_path, epub_meta_addon_path, epub_meta_xml_path, output_path, project_path,
-            cover_path, css_path, config, toc, warnings,
+            cover_path, css_path, config, toc, env, warnings,
         )
 
     return output_path

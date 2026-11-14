@@ -77,6 +77,7 @@ def _run_pandoc_epub(
     css_path: Path | None,
     config: dict,
     toc: bool,
+    env: dict,
     warnings: list[str],
 ) -> None:
     """Вызывает Pandoc для сборки EPUB3 (cover, css, filter, abbrevs)."""
@@ -112,7 +113,7 @@ def _run_pandoc_epub(
     cmd.extend(["-o", str(output)])
     cmd.extend(str(p) for p in md_files)
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, env=env)
     if result.returncode != 0:
         raise BgenError(f"pandoc завершился с ошибкой:\n{result.stderr}")
     if result.stderr:

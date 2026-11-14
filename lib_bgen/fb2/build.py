@@ -16,6 +16,7 @@ def _build_fb2(
     project_path: Path,
     config: dict,
     output_dir: Path,
+    env: dict,
     warnings: list[str],
 ) -> Path:
     """Собирает FB2: pandoc, постобработка, XSD-валидация.
@@ -38,7 +39,7 @@ def _build_fb2(
         meta_path = _build_pandoc_metadata(project_path, config, tmpdir, warnings)
         if keep_metadata:
             shutil.copy(meta_path, output_dir / "fb2_metadata.yaml")   
-        _run_pandoc_fb2(md_files, meta_path, output_path, project_path, config, warnings)
+        _run_pandoc_fb2(md_files, meta_path, output_path, project_path, config, env, warnings)
 
     # pandoc формирует fb2 со множеством проблем, поэтому требуется постобработка
     _postprocess_fb2(output_path, config, project_path, warnings)
