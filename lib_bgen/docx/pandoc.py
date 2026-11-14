@@ -41,6 +41,7 @@ def _run_pandoc_docx(
     output: Path,
     resource_path: Path,
     reference_doc: Path,
+    config: dict,
     toc: bool,
     warnings: list[str],
 ) -> None:
@@ -54,6 +55,10 @@ def _run_pandoc_docx(
         "--resource-path", str(resource_path),
         "--reference-doc", str(reference_doc),
     ]
+    if config.get("trace", False):
+        cmd.append("--trace")
+    if config.get("verbose", False):
+        cmd.append("--verbose")
     if toc:
         cmd.append("--toc")
     filter_path = BGEN_DIR / "filter_bgen.lua"

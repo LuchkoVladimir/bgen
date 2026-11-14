@@ -1,6 +1,7 @@
 """DOCX: сборка одного формата (pandoc → build)."""
 from __future__ import annotations
 
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -38,12 +39,16 @@ def _build_docx(
             f"Стили (Epigraph, Annotation и т.д.) не будут применены."
         )
 
+    keep_metadata = config.get("keep_metadata", False)
+
     toc = docx_cfg.get("toc", False)
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
         meta_path = _build_docx_metadata(project_path, config, tmpdir, warnings)
+        if keep_metadata:
+            shutil.copy(meta_path, output_dir / "docx_metadata.yaml")
         _run_pandoc_docx(
-            md_files, meta_path, output_path, project_path, ref_path, toc, warnings
+            md_files, meta_path, output_path, project_path, ref_path, config, toc, warnings
         )
 
     return output_path

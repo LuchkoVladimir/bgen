@@ -51,7 +51,7 @@ def _build_txt(
     md_files = _get_body_files(project_path)
 
     _run_pandoc_txt(
-        md_files, output_path, project_path, columns, wrap, warnings,
+        md_files, output_path, project_path, columns, wrap, config, warnings,
     )
 
     if card:

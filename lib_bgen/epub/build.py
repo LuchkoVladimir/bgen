@@ -1,6 +1,7 @@
 """EPUB: сборка одного формата (pandoc + cover + css)."""
 from __future__ import annotations
 
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -41,14 +42,20 @@ def _build_epub(
     # build table of contents
     toc = epub_cfg.get("toc", False)
 
+    keep_metadata = config.get("keep_metadata", False)
+
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
         meta_path, epub_meta_xml_path, epub_meta_addon_path, cover_path = _build_epub_metadata(
                 project_path, config, tmpdir, warnings,
         )
+        if keep_metadata:
+            shutil.copy(meta_path, output_dir / "epub_metadata.yaml")
+            if epub_meta_addon_path is not None:
+                shutil.copy(epub_meta_addon_path, output_dir / "epub_addon_metadata.yaml")
         _run_pandoc_epub(
             md_files, meta_path, epub_meta_addon_path, epub_meta_xml_path, output_path, project_path,
-            cover_path, css_path, toc, warnings,
+            cover_path, css_path, config, toc, warnings,
         )
 
     return output_path

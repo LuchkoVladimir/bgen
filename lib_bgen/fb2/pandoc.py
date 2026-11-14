@@ -51,6 +51,7 @@ def _run_pandoc_fb2(
     meta_path: Path,
     output: Path,
     resource_path: Path,
+    config: dict,
     warnings: list[str],
 ) -> None:
     """Вызывает Pandoc для сборки FB2."""
@@ -62,6 +63,10 @@ def _run_pandoc_fb2(
         "--metadata-file", str(meta_path),
         "--resource-path", str(resource_path),
     ]
+    if config.get("trace", False):
+        cmd.append("--trace")
+    if config.get("verbose", False):
+        cmd.append("--verbose")
     filter_path = BGEN_DIR / "filter_bgen.lua"
     if filter_path.exists():
         cmd.extend(["--lua-filter", str(filter_path)])

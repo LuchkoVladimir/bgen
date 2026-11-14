@@ -13,6 +13,7 @@ def _run_pandoc_txt(
     resource_path: Path,
     columns: int,
     wrap: str,
+    config: dict,
     warnings: list[str],
 ) -> None:
     """Вызывает Pandoc: -t plain --columns N --wrap W.
@@ -29,6 +30,10 @@ def _run_pandoc_txt(
         "--wrap", wrap,
         "--resource-path", str(resource_path),
     ]
+    if config.get("trace", False):
+        cmd.append("--trace")
+    if config.get("verbose", False):
+        cmd.append("--verbose")
     filter_path = BGEN_DIR / "filter_bgen.lua"
     if filter_path.exists():
         cmd.extend(["--lua-filter", str(filter_path)])

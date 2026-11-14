@@ -75,6 +75,7 @@ def _run_pandoc_epub(
     resource_path: Path,
     cover_path: Path | None,
     css_path: Path | None,
+    config: dict,
     toc: bool,
     warnings: list[str],
 ) -> None:
@@ -87,6 +88,10 @@ def _run_pandoc_epub(
         "--metadata-file", str(meta_path),
         "--resource-path", str(resource_path),
     ]
+    if config.get("trace", False):
+        cmd.append("--trace")
+    if config.get("verbose", False):
+        cmd.append("--verbose")
     if toc:
         cmd.append("--toc")
     if cover_path is not None and cover_path.exists():

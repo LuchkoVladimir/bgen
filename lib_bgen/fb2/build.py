@@ -1,6 +1,7 @@
 """FB2: сборка одного формата (pandoc → postprocess → validate)."""
 from __future__ import annotations
 
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -30,10 +31,14 @@ def _build_fb2(
 
     md_files = _get_body_files(project_path)
 
+    keep_metadata = config.get("keep_metadata", False)
+
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
         meta_path = _build_pandoc_metadata(project_path, config, tmpdir, warnings)
-        _run_pandoc_fb2(md_files, meta_path, output_path, project_path, warnings)
+        if keep_metadata:
+            shutil.copy(meta_path, output_dir / "fb2_metadata.yaml")   
+        _run_pandoc_fb2(md_files, meta_path, output_path, project_path, config, warnings)
 
     # pandoc формирует fb2 со множеством проблем, поэтому требуется постобработка
     _postprocess_fb2(output_path, config, project_path, warnings)
