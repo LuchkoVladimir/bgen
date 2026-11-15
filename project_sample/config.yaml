@@ -54,9 +54,14 @@ fb2:
   enabled: true
   output_name: book.fb2
 
-  # Иерархическое форматирование XML с отступами (косметика).
-  # Требует Python 3.9+ (ET.indent).
-  pretty_print: true
+  # Режим вывода XML (структура + --wrap):
+  #   pretty  — indent 2, --wrap auto (читаемо; дефолт).
+  #   toleft  — indent "", --wrap auto (без пробелов, но с \n).
+  #   src     — indent "", --wrap preserve (как в исходнике).
+  print: pretty
+
+  # Сжимать ли итоговый FB2 в book.fb2.zip (рядом с book.fb2).
+  zip: true
 
   # Режим работы с <description>:
   #   auto     — bgen генерирует description из config.yaml/body/ и упорядочивает.

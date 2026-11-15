@@ -4,6 +4,7 @@ from __future__ import annotations
 import subprocess
 import shutil
 import tempfile
+import zipfile
 from pathlib import Path
 
 try:
@@ -56,6 +57,7 @@ def _run_pandoc_fb2(
     meta_path: Path,
     output: Path,
     resource_path: Path,
+    wrap: str,
     config: dict,
     env: dict,
     warnings: list[str],
@@ -68,6 +70,7 @@ def _run_pandoc_fb2(
         "--standalone",
         "--metadata-file", str(meta_path),
         "--resource-path", str(resource_path),
+        "--wrap", wrap,
     ]
     if config.get("trace", False):
         cmd.append("--trace")
@@ -108,12 +111,21 @@ def _build_fb2(
 
     keep_metadata = config.get("keep_metadata", False)
 
+    # print mode: pretty/toleft/src → wrap
+    print_mode = fb2_cfg.get("print", "pretty")
+    wrap_map = {
+        "pretty": "auto",
+        "toleft": "auto",
+        "src": "preserve",
+    }
+    wrap = wrap_map.get(print_mode, "auto")
+
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
         meta_path = _build_pandoc_metadata(project_path, config, tmpdir, warnings)
         if keep_metadata:
             shutil.copy(meta_path, output_dir / "fb2_metadata.yaml")   
-        _run_pandoc_fb2(md_files, meta_path, output_path, project_path, config, env, warnings)
+        _run_pandoc_fb2(md_files, meta_path, output_path, project_path, wrap, config, env, warnings)
 
     # pandoc формирует fb2 со множеством проблем, поэтому требуется постобработка
     _postprocess_fb2(output_path, config, project_path, warnings)
@@ -122,6 +134,13 @@ def _build_fb2(
     if xsd_errors:
         error_text = "\n".join(xsd_errors)
         raise BgenError(f"FB2 не прошёл валидацию по XSD:\n{error_text}")
+
+    # fb2.zip: сжать рядом (не вместо)
+    if fb2_cfg.get("zip", False):
+        zip_path = output_path.with_suffix(output_path.suffix + ".zip")  # book.fb2.zip
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.write(output_path, arcname=output_path.name)
+        warnings.append(f"FB2 зазипован: {zip_path}")
 
     return output_path
 

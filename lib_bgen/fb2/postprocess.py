@@ -348,17 +348,20 @@ def _check_fb2_affecting_sections(root: ET.Element) -> tuple[ET.Element, ET.Elem
 
 def _write_fb2(
     tree: ET.ElementTree,
-    print_pretty: bool,
+    print_mode: src,
     fb2_path: Path,
     warnings: list[str],
 ) -> None:
-    """Иерархическое форматирование XML (ET.indent) и запись файла.
+    """Форматирование XML по режиму print и запись файла.
 
-    Если ET.indent недоступен на Python < 3.9). Запись выполняется всегда.
+    pretty  — indent 2 пробела.
+    toleft  — indent "" (без пробелов, но с \n).
+    src     — indent "" (как toleft).
     """
-    if print_pretty:
+    if print_mode in ("pretty", "toleft", "src"):
+        space = "  " if print_mode == "pretty" else ""
         try:
-            ET.indent(tree, space="  ", level=0)
+            ET.indent(tree, space=space, level=0)
         except AttributeError:
             warnings.append("ET.indent недоступен (Python < 3.9), форматирование пропущено")
 
@@ -604,8 +607,8 @@ def _postprocess_fb2(
 
     # Печать финального fb2 в файл 
     fb2_cfg = config.get("fb2") or {}
-    print_pretty = fb2_cfg.get("pretty_print", False)
+    print_mode = fb2_cfg.get("print", "pretty")
 
-    _write_fb2(tree, print_pretty, fb2_path, warnings)
+    _write_fb2(tree, print_mode, fb2_path, warnings)
 
 
