@@ -68,9 +68,6 @@ def _run_pandoc_docx(
     filter_path = BGEN_DIR / "filter_bgen.lua"
     if filter_path.exists():
         cmd.extend(["--lua-filter", str(filter_path)])
-    abbrevs = BGEN_DIR / "abbrevs.txt"
-    if abbrevs.exists():
-        cmd.extend(["--abbreviations", str(abbrevs)])
     cmd.extend(["-o", str(output)])
     cmd.extend(str(p) for p in md_files)
 

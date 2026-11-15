@@ -83,7 +83,7 @@ def _run_pandoc_epub(
     env: dict,
     warnings: list[str],
 ) -> None:
-    """Вызывает Pandoc для сборки EPUB3 (cover, css, filter, abbrevs)."""
+    """Вызывает Pandoc для сборки EPUB3 (cover, css, filter)."""
     cmd = [
         "pandoc",
         "--from", "markdown",
@@ -110,9 +110,6 @@ def _run_pandoc_epub(
     filter_path = BGEN_DIR / "filter_bgen.lua"
     if filter_path.exists():
         cmd.extend(["--lua-filter", str(filter_path)])
-    abbrevs = BGEN_DIR / "abbrevs.txt"
-    if abbrevs.exists():
-        cmd.extend(["--abbreviations", str(abbrevs)])
     cmd.extend(["-o", str(output)])
     cmd.extend(str(p) for p in md_files)
 
