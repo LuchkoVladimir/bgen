@@ -14,7 +14,7 @@ try:
 except ImportError:
     raise ImportError("Требуется jsonschema. Установите: pip install jsonschema")
 
-from .common import BgenError, KNOWN_FORMATS, SCHEMAS_DIR
+from .common import BgenError, KNOWN_FORMATS, SCHEMAS_DIR, TYPOGRAPHY_FILE
 
 CONFIG_SCHEMA_FILE = SCHEMAS_DIR / "config.schema.json"
 
@@ -113,6 +113,72 @@ def _get_body_files(project_path: Path) -> list[Path]:
     if not files:
         raise BgenError(f"в {body_dir} не найдено .md файлов")
     return files
+
+
+def _resolve_file_paths(project_path: Path, config: dict) -> dict[str, Path | None]:
+    """Эффективные пути к «дополнительным файлам» проекта.
+
+    Не проверяет существование — только выбирает путь (конфиг → bgen/schemas).
+    Возвращает dict: имя → Path (или None, если файл не применим/не задан).
+
+    Имена:
+      typography         — typography.txt (config.yaml → bgen/schemas)
+      fb2_description    — fb2_description.xml (только если задан description_file)
+      reference_doc      — reference.docx (docx.reference_doc → bgen/schemas)
+      epub_css           — epub.css (epub.css → bgen/schemas)
+      epub_metadata      — epub-metadata.xml (только если задан metadata-file)
+    """
+    fb2_cfg = config.get("fb2") or {}
+    docx_cfg = config.get("docx") or {}
+    epub_cfg = config.get("epub") or {}
+
+    paths: dict[str, Path | None] = {}
+
+    # typography: config → bgen/schemas/typography.txt
+    typo = config.get("typography", "")
+    paths["typography"] = (project_path / typo).resolve() if typo else TYPOGRAPHY_FILE
+
+    # fb2_description: только если задан description_file
+    desc_rel = fb2_cfg.get("description_file", "")
+    paths["fb2_description"] = (project_path / desc_rel).resolve() if desc_rel else None
+
+    # reference_doc: config → bgen/schemas/reference.docx
+    ref = docx_cfg.get("reference_doc", "")
+    paths["reference_doc"] = (project_path / ref).resolve() if ref else SCHEMAS_DIR / "reference.docx"
+
+    # epub_css: config → bgen/schemas/epub.css
+    css = epub_cfg.get("css", "")
+    paths["epub_css"] = (project_path / css).resolve() if css else SCHEMAS_DIR / "epub.css"
+
+    # epub_metadata: только если задан metadata-file
+    meta_file = epub_cfg.get("metadata-file", "")
+    paths["epub_metadata"] = (project_path / meta_file).resolve() if meta_file else None
+
+    return paths
+
+
+def _check_file_paths(
+    paths: dict[str, Path | None],
+    warnings: list[str],
+    strict: bool,
+) -> None:
+    """Проверяет существование файлов из _resolve_file_paths.
+
+    strict=True  — BgenError на первый отсутствующий файл (для build).
+    strict=False — warning на каждый отсутствующий файл (для check).
+    """
+    missing: list[str] = []
+    for name, path in paths.items():
+        if path is None:
+            continue
+        if not path.exists():
+            missing.append(f"{name}: файл не найден: {path}")
+
+    if strict:
+        if missing:
+            raise BgenError("\n".join(missing))
+    else:
+        warnings.extend(missing)
 
 
 # ============================================================
