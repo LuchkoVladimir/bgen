@@ -9,7 +9,14 @@ try:
 except ImportError:
     raise ImportError("Требуется PyYAML. Установите: pip install pyyaml")
 
-from .common import BgenError, KNOWN_FORMATS
+try:
+    import jsonschema
+except ImportError:
+    raise ImportError("Требуется jsonschema. Установите: pip install jsonschema")
+
+from .common import BgenError, KNOWN_FORMATS, SCHEMAS_DIR
+
+CONFIG_SCHEMA_FILE = SCHEMAS_DIR / "config.schema.json"
 
 
 # ============================================================
@@ -23,6 +30,41 @@ def _load_config(project_path: Path) -> dict:
         raise BgenError(f"{config_path} не найден")
     with open(config_path, encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
+
+
+def _validate_config(config: dict) -> None:
+    """Валидация config.yaml по JSON Schema.
+
+    Бросает BgenError с человекочитаемыми ошибками (путь к полю + сообщение).
+    """
+    if not CONFIG_SCHEMA_FILE.exists():
+        raise BgenError(
+            f"схема конфига не найдена: {CONFIG_SCHEMA_FILE}. "
+            f"Проверьте дистрибутив bgen."
+        )
+
+    try:
+        with open(CONFIG_SCHEMA_FILE, encoding="utf-8") as f:
+            schema = yaml.safe_load(f)
+    except (OSError, yaml.YAMLError) as e:
+        raise BgenError(
+            f"не удалось загрузить схему конфига {CONFIG_SCHEMA_FILE}: {e}"
+        )
+
+    validator = jsonschema.Draft202012Validator(schema)
+    errors = sorted(validator.iter_errors(config), key=lambda e: list(e.absolute_path))
+
+    if not errors:
+        return
+
+    lines = []
+    for err in errors:
+        path = ".".join(str(p) for p in err.absolute_path) or "(root)"
+        lines.append(f"  {path}: {err.message}")
+
+    raise BgenError(
+        "config.yaml не прошёл валидацию по схеме:\n" + "\n".join(lines)
+    )
 
 
 def _validate_project_path(project_path: Path) -> Path:

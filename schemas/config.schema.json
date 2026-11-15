@@ -1,0 +1,331 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "bgen config.yaml",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["metadata"],
+  "properties": {
+    "output_dir": {
+      "type": "string"
+    },
+    "typography": {
+      "type": "string"
+    },
+    "trace": {
+      "type": "boolean"
+    },
+    "verbose": {
+      "type": "boolean"
+    },
+    "keep_metadata": {
+      "type": "boolean"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["title", "author"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "author": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          ]
+        },
+        "lang": {
+          "type": "string"
+        },
+        "cover-image": {
+          "type": "string"
+        }
+      }
+    },
+    "fb2": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "output_name": {
+          "type": "string"
+        },
+        "print": {
+          "type": "string",
+          "enum": ["pretty", "toleft", "src"]
+        },
+        "zip": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string",
+          "enum": ["auto", "template", "override"]
+        },
+        "description_file": {
+          "type": "string"
+        },
+        "genres": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "match": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "title-author": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string", "minLength": 1 },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "first-name": { "type": "string", "minLength": 1 },
+                  "middle-name": { "type": "string", "minLength": 1 },
+                  "last-name": { "type": "string", "minLength": 1 },
+                  "nickname": { "type": "string", "minLength": 1 },
+                  "home-page": {
+                    "oneOf": [
+                      { "type": "string", "minLength": 1 },
+                      { "type": "array", "items": { "type": "string", "minLength": 1 } }
+                    ]
+                  },
+                  "email": {
+                    "oneOf": [
+                      { "type": "string", "minLength": 1 },
+                      { "type": "array", "items": { "type": "string", "minLength": 1 } }
+                    ]
+                  },
+                  "id": { "type": "string", "minLength": 1 }
+                }
+              }
+            ]
+          }
+        },
+        "keywords": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "title-date": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["value"],
+              "properties": {
+                "value": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "text": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "sequence": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "number": {
+                    "type": ["integer", "string"]
+                  },
+                  "lang": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "doc-author-copy-first-from-title": {
+          "type": "boolean"
+        },
+        "date": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "description": { "enum": ["template", "override"] } },
+            "required": ["description"]
+          },
+          "then": {
+            "required": ["description_file"],
+            "properties": { "description_file": { "minLength": 1 } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "description": { "enum": ["auto"] } },
+            "required": ["description"]
+          },
+          "then": {
+            "properties": { "description_file": { "maxLength": 0 } }
+          }
+        },
+        {
+          "if": {
+            "not": { "required": ["description"] }
+          },
+          "then": {
+            "properties": { "description_file": { "maxLength": 0 } }
+          }
+        }
+      ]
+    },
+    "epub": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "output_name": {
+          "type": "string"
+        },
+        "css": {
+          "type": "string"
+        },
+        "toc": {
+          "type": "boolean"
+        },
+        "metadata-file": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+
+      "allOf": [
+        {
+          "if": {
+            "properties": { "metadata-file": { "minLength": 1 } },
+            "required": ["metadata-file"]
+          },
+          "then": {
+            "not": {
+              "properties": { "metadata": { "minProperties": 1 } },
+              "required": ["metadata"]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "metadata": { "minProperties": 1 } },
+            "required": ["metadata"]
+          },
+          "then": {
+            "not": {
+              "properties": { "metadata-file": { "minLength": 1 } },
+              "required": ["metadata-file"]
+            }
+          }
+        }
+      ]
+    },
+    "docx": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "output_name": {
+          "type": "string"
+        },
+        "reference_doc": {
+          "type": "string"
+        },
+        "toc": {
+          "type": "boolean"
+        }
+      }
+    },
+    "txt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "output_name": {
+          "type": "string"
+        },
+        "columns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "wrap": {
+          "type": "string",
+          "enum": ["auto", "none", "preserve"]
+        },
+        "card": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

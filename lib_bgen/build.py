@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 from .common import BgenError, TYPOGRAPHY_FILE
-from .project import _load_config, _resolve_formats, _validate_project_path
+from .project import _load_config, _resolve_formats, _validate_config, _validate_project_path
 
 
 def _make_pandoc_env(project_path: Path, config: dict) -> dict:
@@ -51,6 +51,7 @@ def build(
 
     project_path = _validate_project_path(project_path)
     config = _load_config(project_path)
+    _validate_config(config)
 
     formats = _resolve_formats(config, only)
 
