@@ -55,15 +55,15 @@ def build(
             output_path = _build_fb2(project_path, config, output_dir, env, warnings)
             results.append((fmt, output_path))
         elif fmt == "docx":
-            from .docx.build import _build_docx
+            from .docx_build import _build_docx
             output_path = _build_docx(project_path, config, output_dir, env, warnings)
             results.append((fmt, output_path))
         elif fmt == "epub":
-            from .epub.build import _build_epub
+            from .epub_build import _build_epub
             output_path = _build_epub(project_path, config, output_dir, env, warnings)
             results.append((fmt, output_path))
         elif fmt == "txt":
-            from .txt.build import _build_txt
+            from .txt_build import _build_txt
             output_path = _build_txt(project_path, config, output_dir, env, warnings)
             results.append((fmt, output_path))
         else:

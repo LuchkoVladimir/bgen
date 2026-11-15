@@ -9,7 +9,9 @@ except ImportError:
     raise ImportError("Требуется lxml. Установите: pip install lxml")
 
 from ..common import SCHEMAS_DIR, BgenError
-from .constants import FB2_XSD
+
+FB2_XSD = SCHEMAS_DIR / "FictionBook.xsd"
+
 
 def _validate_fb2(fb2_path: Path) -> list[str]:
     """Валидация FB2 по XSD. Возвращает список сообщений об ошибках.

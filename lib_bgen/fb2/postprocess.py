@@ -7,12 +7,26 @@ import xml.etree.ElementTree as ET
 from datetime import date as date_cls
 from pathlib import Path
 
-from ..common import BgenError
-
-from .constants import (
-    FB2_NS, XML_NS, PROGRAM_USED,
-    _TITLE_INFO_ORDER, _DOC_INFO_ORDER,
+from ..common import (
+        BgenError,
+        PROGRAM_NAME,
+        PROGRAM_TITLE,
+        PROGRAM_VERSION,
 )
+
+PROGRAM_USED = f"{PROGRAM_TITLE}: {PROGRAM_NAME}-{PROGRAM_VERSION}"
+
+FB2_NS = "http://www.gribuser.ru/xml/fictionbook/2.0"
+XML_NS = "http://www.w3.org/XML/1998/namespace"
+
+_TITLE_INFO_ORDER = [
+    "genre", "author", "book-title", "annotation", "keywords",
+    "date", "coverpage", "lang", "src-lang", "translator", "sequence",
+]
+_DOC_INFO_ORDER = [
+    "author", "program-used", "date", "src-url", "src-ocr",
+    "id", "version", "history", "publisher",
+]
 
 
 def _make_book_id(config: dict) -> str:
