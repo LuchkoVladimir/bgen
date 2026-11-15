@@ -11,7 +11,7 @@ try:
 except ImportError:
     raise ImportError("Требуется PyYAML. Установите: pip install pyyaml")
 
-from .common import BGEN_DIR, BgenError
+from .common import BGEN_DIR, SCHEMAS_DIR, BgenError
 from .project import _get_body_files
 
 
@@ -102,7 +102,7 @@ def _build_docx(
     if ref:
         ref_path = (project_path / ref).resolve()
     else:
-        ref_path = BGEN_DIR / "reference.docx"
+        ref_path = SCHEMAS_DIR / "reference.docx"
     if not ref_path.exists():
         warnings.append(
             f"reference.docx не найден: {ref_path}. "

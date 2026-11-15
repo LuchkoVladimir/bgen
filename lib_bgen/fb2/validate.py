@@ -10,7 +10,8 @@ except ImportError:
 
 from ..common import SCHEMAS_DIR, BgenError
 
-FB2_XSD = SCHEMAS_DIR / "FictionBook.xsd"
+FB2_SCHEMAS_DIR = SCHEMAS_DIR / "fb2_xsd"
+FB2_XSD = FB2_SCHEMAS_DIR / "FictionBook.xsd"
 
 
 def _validate_fb2(fb2_path: Path) -> list[str]:
@@ -21,7 +22,7 @@ def _validate_fb2(fb2_path: Path) -> list[str]:
     if not FB2_XSD.exists():
         raise BgenError(
             f"XSD-схема FB2 не найдена: {FB2_XSD}. "
-            f"Положите FictionBook.xsd и связанные схемы в {SCHEMAS_DIR}"
+            f"Положите FictionBook.xsd и связанные схемы в {FB2_SCHEMAS_DIR}"
         )
 
     try:

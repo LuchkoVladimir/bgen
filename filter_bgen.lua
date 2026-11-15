@@ -12,7 +12,7 @@ local function load_typography()
   local path = os.getenv("BGEN_TYPOGRAPHY")
   if not path or path == "" then
     local script_dir = debug.getinfo(1, "S").source:match("@(.*[/\\])")
-    path = (script_dir or "") .. "typography.txt"
+    path = (script_dir or "") .. "schemas/typography.txt"
   end
 
   local f = io.open(path, "r")

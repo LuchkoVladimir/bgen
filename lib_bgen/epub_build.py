@@ -11,7 +11,7 @@ try:
 except ImportError:
     raise ImportError("Требуется PyYAML. Установите: pip install pyyaml")
 
-from .common import BGEN_DIR, BgenError
+from .common import BGEN_DIR, SCHEMAS_DIR, BgenError
 from .project import _get_body_files
 
 
@@ -145,7 +145,7 @@ def _build_epub(
     if css_rel:
         css_path = (project_path / css_rel).resolve()
     else:
-        css_path = BGEN_DIR / "epub.css"
+        css_path = SCHEMAS_DIR / "epub.css"
     if css_path is None or not css_path.exists():
         warnings.append(f"CSS не найден: {css_path}. Используется дефолтный.")
         css_path = None

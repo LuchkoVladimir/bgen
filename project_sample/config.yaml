@@ -15,7 +15,7 @@ output_dir: output
 # Типографика
 # ------------------------------------------------------------
 # Путь к typography.txt относительно корня проекта (или абсолютный).
-# Если пусто — используется bgen/typography.txt (дефолтный).
+# Если пусто — используется bgen/schemas/typography.txt (дефолтный).
 typography: ""
 
 # ------------------------------------------------------------
@@ -192,7 +192,7 @@ epub:
   enabled: true
   output_name: book.epub
   # Путь к CSS относительно корня проекта.
-  # Если пусто — используется bgen/epub.css (дефолтный).
+  # Если пусто — используется bgen/schemas/epub.css (дефолтный).
   css: ""
   # Включить видимую страницу с оглавлением в начале книги
   # (Pandoc --toc: nav.xhtml добавляется в spine с linear="yes").
@@ -220,7 +220,7 @@ docx:
   enabled: true
   output_name: book.docx
   # Путь к reference.docx относительно корня проекта.
-  # Если пусто — используется bgen/reference.docx (дефолтный).
+  # Если пусто — используется bgen/schemas/reference.docx (дефолтный).
   reference_doc: ""
   toc: true
 
