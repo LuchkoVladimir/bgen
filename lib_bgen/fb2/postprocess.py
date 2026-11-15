@@ -157,15 +157,21 @@ def _apply_custom_description(
     fb2_cfg = config.get("fb2") or {}
     mode = fb2_cfg.get("description", "auto")
     if mode == "auto":
-        return []
+        return
 
     if mode not in ("template", "override"):
         raise BgenError(f"неизвестный режим fb2.description: {mode}")
 
-    desc_path = project_path / "fb2_description.xml"
+    desc_rel = fb2_cfg.get("description_file", "")
+    if not desc_rel:
+        raise BgenError(
+            f"fb2.description={mode}, но fb2.description_file не задан. "
+            f"Укажите путь к fb2_description.xml."
+        )
+    desc_path = (project_path / desc_rel).resolve()
     if not desc_path.exists():
         raise BgenError(
-            f"fb2.description: {mode}, но файл не найден: {desc_path}"
+            f"fb2.description_file: файл не найден: {desc_path}"
         )
 
     try:

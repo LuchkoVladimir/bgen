@@ -50,15 +50,18 @@ def _build_epub_metadata(project_path: Path, config: dict, tmpdir: Path, warning
     if epub_meta_file_rel:
         epub_meta_file_path = (project_path / epub_meta_file_rel).resolve()
         if not epub_meta_file_path.exists():
-            warnings.append(f"epub-metadata-file не найден: {epub_meta_file_path}")
-            epub_meta_file_path = None
+            raise BgenError(
+                f"epub.metadata-file: файл не найден: {epub_meta_file_path}"
+            )
 
     # Дополнительный --metadata-file c yaml для epub
     add_meta = dict(epub_cfg.get("metadata") or {})
     epub_add_meta_path = None
     if epub_meta_file_path and add_meta:
-        warnings.append(f"epub:metadata-file и epub:metadata оба не пусты: используем файл.")
-        epub_add_meta_path = None
+        raise BgenError(
+            f"epub.metadata-file ({epub_meta_file_path}) и epub.metadata: оба не пусты. "
+            "Выберите одно: XML-файл (--epub-metadata) или YAML-секцию (--metadata-file)."
+        )
     elif add_meta:
         epub_add_meta_path = tmpdir / "epub-metadata-addon.yaml"
 
@@ -144,11 +147,17 @@ def _build_epub(
     css_rel = epub_cfg.get("css")
     if css_rel:
         css_path = (project_path / css_rel).resolve()
+        if not css_path.exists():
+            raise BgenError(
+                f"epub.css: файл не найден: {css_path}"
+            )
     else:
         css_path = SCHEMAS_DIR / "epub.css"
-    if css_path is None or not css_path.exists():
-        warnings.append(f"CSS не найден: {css_path}. Используется дефолтный.")
-        css_path = None
+        if not css_path.exists():
+            raise BgenError(
+                f"дефолтный epub.css не найден: {css_path}. "
+                f"Проверьте дистрибутив bgen."
+            )
 
     # build table of contents
     toc = epub_cfg.get("toc", False)

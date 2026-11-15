@@ -101,13 +101,17 @@ def _build_docx(
     ref = docx_cfg.get("reference_doc")
     if ref:
         ref_path = (project_path / ref).resolve()
+        if not ref_path.exists():
+            raise BgenError(
+                f"docx.reference_doc: файл не найден: {ref_path}"
+            )
     else:
         ref_path = SCHEMAS_DIR / "reference.docx"
-    if not ref_path.exists():
-        warnings.append(
-            f"reference.docx не найден: {ref_path}. "
-            f"Стили (Epigraph, Annotation и т.д.) не будут применены."
-        )
+        if not ref_path.exists():
+            raise BgenError(
+                f"дефолтный reference.docx не найден: {ref_path}. "
+                f"Проверьте дистрибутив bgen."
+            )
 
     keep_metadata = config.get("keep_metadata", False)
 

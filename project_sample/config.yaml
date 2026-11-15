@@ -75,6 +75,12 @@ fb2:
   #              title/author для Pandoc, иначе сборка упадёт.
   description: auto
 
+  # Путь к fb2_description.xml (относительно проекта или абсолютный).
+  # Обязателен, если description = template или override.
+  # Если файл не найден — сборка прерывается (BgenError).
+  # Fallback на bgen/ НЕ используется (описание книги — своё для каждого проекта).
+  description_file: ""
+
   ##########################
   # description/title-info #
   ##########################

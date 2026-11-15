@@ -13,14 +13,25 @@ def _make_pandoc_env(project_path: Path, config: dict) -> dict:
 
     BGEN_TYPOGRAPHY — путь к typography.txt:
       config.yaml: typography (если задан)
-      иначе → bgen/typography.txt (TYPOGRAPHY_FILE).
+      иначе → bgen/schemas/typography.txt (TYPOGRAPHY_FILE).
+    Если файл не найден — BgenError (сборка прерывается).
     """
     env = os.environ.copy()
     typography_rel = config.get("typography", "")
     if typography_rel:
-        env["BGEN_TYPOGRAPHY"] = str((project_path / typography_rel).resolve())
+        typography_path = str((project_path / typography_rel).resolve())
+        if not typography_path.exists():
+            raise BgenError(
+                f"typography: файл не найден: {typography_path}"
+            )
     else:
-        env["BGEN_TYPOGRAPHY"] = str(TYPOGRAPHY_FILE)
+        typography_path = TYPOGRAPHY_FILE
+        if not typography_path.exists():
+            raise BgenError(
+                f"дефолтный typography.txt не найден: {typography_path}. "
+                f"Проверьте дистрибутив bgen."
+            )
+    env["BGEN_TYPOGRAPHY"] = str(typography_path)
     return env
 
 
