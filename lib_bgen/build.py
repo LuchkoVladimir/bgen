@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from .common import BgenError, TYPOGRAPHY_FILE
+from .common import BgenError
 from .project import (
     _load_config,
     _resolve_formats,
@@ -12,34 +12,8 @@ from .project import (
     _validate_project_path,
     _resolve_file_paths,
     _check_file_paths,
+    PATHS_TYPOG
 )
-
-
-def _make_pandoc_env(project_path: Path, config: dict) -> dict:
-    """Окружение для всех вызовов Pandoc в сессии.
-
-    BGEN_TYPOGRAPHY — путь к typography.txt:
-      config.yaml: typography (если задан)
-      иначе → bgen/schemas/typography.txt (TYPOGRAPHY_FILE).
-    Если файл не найден — BgenError (сборка прерывается).
-    """
-    env = os.environ.copy()
-    typography_rel = config.get("typography", "")
-    if typography_rel:
-        typography_path = str((project_path / typography_rel).resolve())
-        if not typography_path.exists():
-            raise BgenError(
-                f"typography: файл не найден: {typography_path}"
-            )
-    else:
-        typography_path = TYPOGRAPHY_FILE
-        if not typography_path.exists():
-            raise BgenError(
-                f"дефолтный typography.txt не найден: {typography_path}. "
-                f"Проверьте дистрибутив bgen."
-            )
-    env["BGEN_TYPOGRAPHY"] = str(typography_path)
-    return env
 
 
 def build(
@@ -70,21 +44,22 @@ def build(
     output_dir = project_path / config.get("output_dir", "output")
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    env = _make_pandoc_env(project_path, config)
+    env = os.environ.copy()
+    env["BGEN_TYPOGRAPHY"] = str(paths[PATHS_TYPOG])
 
     results: list[tuple[str, Path]] = []
     for fmt in formats:
         if fmt == "fb2":
             from .fb2.build import _build_fb2
-            output_path = _build_fb2(project_path, config, output_dir, env, warnings)
+            output_path = _build_fb2(project_path, config, paths, output_dir, env, warnings)
             results.append((fmt, output_path))
         elif fmt == "docx":
             from .docx_build import _build_docx
-            output_path = _build_docx(project_path, config, output_dir, env, warnings)
+            output_path = _build_docx(project_path, config, paths, output_dir, env, warnings)
             results.append((fmt, output_path))
         elif fmt == "epub":
             from .epub_build import _build_epub
-            output_path = _build_epub(project_path, config, output_dir, env, warnings)
+            output_path = _build_epub(project_path, config, paths, output_dir, env, warnings)
             results.append((fmt, output_path))
         elif fmt == "txt":
             from .txt_build import _build_txt

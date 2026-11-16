@@ -11,11 +11,17 @@ try:
 except ImportError:
     raise ImportError("Требуется PyYAML. Установите: pip install pyyaml")
 
-from .common import BGEN_DIR, SCHEMAS_DIR, BgenError
-from .project import _get_body_files
+from .common import FILTER_FILE, BgenError
+from .project import _get_body_files, PATHS_EPUB_CSS, PATHS_EPUB_META_XML
 
 
-def _build_epub_metadata(project_path: Path, config: dict, tmpdir: Path, warnings: list[str]) -> tuple[Path, Path | None, Path | None, Path | None]:
+def _build_epub_metadata(
+    project_path: Path,
+    config: dict,
+    paths: dict [str, Path | None],
+    tmpdir: Path,
+    warnings: list[str]
+) -> tuple[Path, Path | None, Path | None, Path | None]:
     """Готовит metadata.yaml для EPUB (title, author, lang).
 
     cover-image не передаётся в metadata: для EPUB обложка задаётся
@@ -24,11 +30,6 @@ def _build_epub_metadata(project_path: Path, config: dict, tmpdir: Path, warning
     """
     meta = dict(config.get("metadata") or {})
     meta.setdefault("lang", "ru")
-
-    if not meta.get("title"):
-        raise BgenError("metadata.title не задан в config.yaml")
-    if not meta.get("author"):
-        raise BgenError("metadata.author не задан в config.yaml")
 
     meta_path = tmpdir / "metadata.yaml"
     with open(meta_path, "w", encoding="utf-8") as f:
@@ -43,33 +44,18 @@ def _build_epub_metadata(project_path: Path, config: dict, tmpdir: Path, warning
             warnings.append(f"обложка не найдена: {cover_path}")
             cover_path = None
 
-    # --epub-metadata c xml для epub
-    epub_cfg = config.get("epub") or {}
-    epub_meta_file_rel = epub_cfg.get("metadata-file", "")
-    epub_meta_file_path = None
-    if epub_meta_file_rel:
-        epub_meta_file_path = (project_path / epub_meta_file_rel).resolve()
-        if not epub_meta_file_path.exists():
-            raise BgenError(
-                f"epub.metadata-file: файл не найден: {epub_meta_file_path}"
-            )
-
     # Дополнительный --metadata-file c yaml для epub
-    add_meta = dict(epub_cfg.get("metadata") or {})
+    epub_cfg = config.get("epub") or {}
+    add_meta_yaml = dict(epub_cfg.get("metadata") or {})
     epub_add_meta_path = None
-    if epub_meta_file_path and add_meta:
-        raise BgenError(
-            f"epub.metadata-file ({epub_meta_file_path}) и epub.metadata: оба не пусты. "
-            "Выберите одно: XML-файл (--epub-metadata) или YAML-секцию (--metadata-file)."
-        )
-    elif add_meta:
+    if add_meta_yaml:
         epub_add_meta_path = tmpdir / "epub-metadata-addon.yaml"
 
     if epub_add_meta_path:
         with open(epub_add_meta_path, "w", encoding="utf-8") as f:
-            yaml.dump(add_meta, f, allow_unicode=True, default_flow_style=False)
+            yaml.dump(add_meta_yaml, f, allow_unicode=True, default_flow_style=False)
 
-    return meta_path, epub_meta_file_path, epub_add_meta_path, cover_path
+    return meta_path, paths[PATHS_EPUB_META_XML], epub_add_meta_path, cover_path
 
 
 def _run_pandoc_epub(
@@ -92,6 +78,7 @@ def _run_pandoc_epub(
         "--from", "markdown",
         "--to", "epub3",
         "--standalone",
+        "--lua-filter", str(FILTER_FILE),
         "--metadata-file", str(meta_path),
         "--resource-path", str(resource_path),
     ]
@@ -110,9 +97,6 @@ def _run_pandoc_epub(
     if epub_meta_xml_path is not None and epub_meta_xml_path.exists():
         cmd.extend(["--epub-metadata", str(epub_meta_xml_path)])
 
-    filter_path = BGEN_DIR / "filter_bgen.lua"
-    if filter_path.exists():
-        cmd.extend(["--lua-filter", str(filter_path)])
     cmd.extend(["-o", str(output)])
     cmd.extend(str(p) for p in md_files)
 
@@ -126,6 +110,7 @@ def _run_pandoc_epub(
 def _build_epub(
     project_path: Path,
     config: dict,
+    paths: dict[str, Path | None],
     output_dir: Path,
     env: dict,
     warnings: list[str],
@@ -143,22 +128,6 @@ def _build_epub(
 
     md_files = _get_body_files(project_path)
 
-    # CSS: из config (epub.css) или bgen/epub.css
-    css_rel = epub_cfg.get("css")
-    if css_rel:
-        css_path = (project_path / css_rel).resolve()
-        if not css_path.exists():
-            raise BgenError(
-                f"epub.css: файл не найден: {css_path}"
-            )
-    else:
-        css_path = SCHEMAS_DIR / "epub.css"
-        if not css_path.exists():
-            raise BgenError(
-                f"дефолтный epub.css не найден: {css_path}. "
-                f"Проверьте дистрибутив bgen."
-            )
-
     # build table of contents
     toc = epub_cfg.get("toc", False)
 
@@ -167,7 +136,7 @@ def _build_epub(
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
         meta_path, epub_meta_xml_path, epub_meta_addon_path, cover_path = _build_epub_metadata(
-                project_path, config, tmpdir, warnings,
+                project_path, config, paths, tmpdir, warnings,
         )
         if keep_metadata:
             shutil.copy(meta_path, output_dir / "epub_metadata.yaml")
@@ -175,7 +144,7 @@ def _build_epub(
                 shutil.copy(epub_meta_addon_path, output_dir / "epub_addon_metadata.yaml")
         _run_pandoc_epub(
             md_files, meta_path, epub_meta_addon_path, epub_meta_xml_path, output_path, project_path,
-            cover_path, css_path, config, toc, env, warnings,
+            cover_path, paths[PATHS_EPUB_CSS], config, toc, env, warnings,
         )
 
     return output_path

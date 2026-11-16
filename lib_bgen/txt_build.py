@@ -4,7 +4,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from .common import BGEN_DIR, BgenError
+from .common import FILTER_FILE, BgenError
 from .project import _get_body_files
 
 
@@ -30,15 +30,13 @@ def _run_pandoc_txt(
         "--to", "plain",
         "--columns", str(columns),
         "--wrap", wrap,
+        "--lua-filter", str(FILTER_FILE),
         "--resource-path", str(resource_path),
     ]
     if config.get("trace", False):
         cmd.append("--trace")
     if config.get("verbose", False):
         cmd.append("--verbose")
-    filter_path = BGEN_DIR / "filter_bgen.lua"
-    if filter_path.exists():
-        cmd.extend(["--lua-filter", str(filter_path)])
     cmd.extend(["-o", str(output)])
     cmd.extend(str(p) for p in md_files)
 
@@ -56,15 +54,12 @@ def _make_card(config: dict) -> str:
     Авторы — каждый на новой строке. Название — после авторов.
     Если title/author нет — возвращает пустую строку (карточка не нужна).
     """
-    meta = config.get("metadata") or {}
-    title = meta.get("title") or ""
-    authors = meta.get("author") or []
+    meta = config.get("metadata")
+    title = meta.get("title")
+    authors = meta.get("author")
     if isinstance(authors, str):
         authors = [authors]
     authors = [str(a) for a in authors if a]
-
-    if not title or not authors:
-        return ""
 
     lines = authors + [title, ""]
     return "\n".join(lines) + "\n"

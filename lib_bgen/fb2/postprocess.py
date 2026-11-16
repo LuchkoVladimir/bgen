@@ -140,8 +140,8 @@ def _update_book_elements_from_body(body: ET.Element, title_info: ET.Element) ->
 
 def _apply_custom_description(
     root: ET.Element,
-    project_path: Path,
     config: dict,
+    desc_path: Path | None,
     generated_title_info: ET.Element,
     generated_doc_info: ET.Element,
     warnings: list[str],
@@ -158,21 +158,6 @@ def _apply_custom_description(
     mode = fb2_cfg.get("description", "auto")
     if mode == "auto":
         return
-
-    if mode not in ("template", "override"):
-        raise BgenError(f"неизвестный режим fb2.description: {mode}")
-
-    desc_rel = fb2_cfg.get("description_file", "")
-    if not desc_rel:
-        raise BgenError(
-            f"fb2.description={mode}, но fb2.description_file не задан. "
-            f"Укажите путь к fb2_description.xml."
-        )
-    desc_path = (project_path / desc_rel).resolve()
-    if not desc_path.exists():
-        raise BgenError(
-            f"fb2.description_file: файл не найден: {desc_path}"
-        )
 
     try:
         custom_tree = ET.parse(desc_path)
@@ -577,7 +562,7 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
 def _postprocess_fb2(
     fb2_path: Path,
     config: dict,
-    project_path: Path,
+    desc_path: Path | None,
     warnings: list[str],
 ) -> None:
     """Постобработка сгенерированного Pandoc FB2.
@@ -609,7 +594,7 @@ def _postprocess_fb2(
     _sort_children_by_order(doc_info, _DOC_INFO_ORDER)
 
     # fb2_description.xml (template / override)
-    _apply_custom_description(root, project_path, config, title_info, doc_info, warnings)
+    _apply_custom_description(root, config, desc_path, title_info, doc_info, warnings)
 
     # Печать финального fb2 в файл 
     fb2_cfg = config.get("fb2") or {}

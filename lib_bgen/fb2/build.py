@@ -12,8 +12,8 @@ try:
 except ImportError:
     raise ImportError("Требуется PyYAML. Установите: pip install pyyaml")
 
-from ..common import BGEN_DIR, BgenError
-from ..project import _get_body_files
+from ..common import FILTER_FILE, BgenError
+from ..project import _get_body_files, PATHS_FB2_DESC
 from .postprocess import _postprocess_fb2
 from .validate import _validate_fb2
 
@@ -31,11 +31,6 @@ def _build_pandoc_metadata(
     """
     meta = dict(config.get("metadata") or {})
     meta.setdefault("lang", "ru")
-
-    if not meta.get("title"):
-        raise BgenError("metadata.title не задан в config.yaml")
-    if not meta.get("author"):
-        raise BgenError("metadata.author не задан в config.yaml")
 
     cover = meta.get("cover-image")
     if cover:
@@ -68,6 +63,7 @@ def _run_pandoc_fb2(
         "--from", "markdown",
         "--to", "fb2",
         "--standalone",
+        "--lua-filter", str(FILTER_FILE),
         "--metadata-file", str(meta_path),
         "--resource-path", str(resource_path),
         "--wrap", wrap,
@@ -76,9 +72,6 @@ def _run_pandoc_fb2(
         cmd.append("--trace")
     if config.get("verbose", False):
         cmd.append("--verbose")
-    filter_path = BGEN_DIR / "filter_bgen.lua"
-    if filter_path.exists():
-        cmd.extend(["--lua-filter", str(filter_path)])
     cmd.extend(["-o", str(output)])
     cmd.extend(str(p) for p in md_files)
 
@@ -92,6 +85,7 @@ def _run_pandoc_fb2(
 def _build_fb2(
     project_path: Path,
     config: dict,
+    paths: dict[str, Path | None],
     output_dir: Path,
     env: dict,
     warnings: list[str],
@@ -128,7 +122,7 @@ def _build_fb2(
         _run_pandoc_fb2(md_files, meta_path, output_path, project_path, wrap, config, env, warnings)
 
     # pandoc формирует fb2 со множеством проблем, поэтому требуется постобработка
-    _postprocess_fb2(output_path, config, project_path, warnings)
+    _postprocess_fb2(output_path, config, paths[PATHS_FB2_DESC], warnings)
 
     xsd_errors = _validate_fb2(output_path)
     if xsd_errors:

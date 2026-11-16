@@ -19,12 +19,6 @@ def _validate_fb2(fb2_path: Path) -> list[str]:
 
     Если XSD-файл не найден — BgenError: без схемы валидация бессмысленна.
     """
-    if not FB2_XSD.exists():
-        raise BgenError(
-            f"XSD-схема FB2 не найдена: {FB2_XSD}. "
-            f"Положите FictionBook.xsd и связанные схемы в {FB2_SCHEMAS_DIR}"
-        )
-
     try:
         schema_doc = lxml_etree.parse(str(FB2_XSD))
         schema = lxml_etree.XMLSchema(schema_doc)

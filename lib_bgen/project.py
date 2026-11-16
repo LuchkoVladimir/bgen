@@ -18,6 +18,11 @@ from .common import BgenError, KNOWN_FORMATS, SCHEMAS_DIR, TYPOGRAPHY_FILE
 
 CONFIG_SCHEMA_FILE = SCHEMAS_DIR / "config.schema.json"
 
+PATHS_TYPOG = "typography"
+PATHS_FB2_DESC = "fb2_description"
+PATHS_DOCX_REF = "reference_doc"
+PATHS_EPUB_CSS = "epub_css"
+PATHS_EPUB_META_XML = "epub_metadata"
 
 # ============================================================
 # Конфигурация
@@ -136,23 +141,23 @@ def _resolve_file_paths(project_path: Path, config: dict) -> dict[str, Path | No
 
     # typography: config → bgen/schemas/typography.txt
     typo = config.get("typography", "")
-    paths["typography"] = (project_path / typo).resolve() if typo else TYPOGRAPHY_FILE
+    paths[PATHS_TYPOG] = (project_path / typo).resolve() if typo else TYPOGRAPHY_FILE
 
     # fb2_description: только если задан description_file
     desc_rel = fb2_cfg.get("description_file", "")
-    paths["fb2_description"] = (project_path / desc_rel).resolve() if desc_rel else None
+    paths[PATHS_FB2_DESC] = (project_path / desc_rel).resolve() if desc_rel else None
 
     # reference_doc: config → bgen/schemas/reference.docx
     ref = docx_cfg.get("reference_doc", "")
-    paths["reference_doc"] = (project_path / ref).resolve() if ref else SCHEMAS_DIR / "reference.docx"
+    paths[PATHS_DOCX_REF] = (project_path / ref).resolve() if ref else SCHEMAS_DIR / "reference.docx"
 
     # epub_css: config → bgen/schemas/epub.css
     css = epub_cfg.get("css", "")
-    paths["epub_css"] = (project_path / css).resolve() if css else SCHEMAS_DIR / "epub.css"
+    paths[PATHS_EPUB_CSS] = (project_path / css).resolve() if css else SCHEMAS_DIR / "epub.css"
 
     # epub_metadata: только если задан metadata-file
     meta_file = epub_cfg.get("metadata-file", "")
-    paths["epub_metadata"] = (project_path / meta_file).resolve() if meta_file else None
+    paths[PATHS_EPUB_META_XML] = (project_path / meta_file).resolve() if meta_file else None
 
     return paths
 

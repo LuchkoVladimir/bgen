@@ -11,8 +11,8 @@ try:
 except ImportError:
     raise ImportError("Требуется PyYAML. Установите: pip install pyyaml")
 
-from .common import BGEN_DIR, SCHEMAS_DIR, BgenError
-from .project import _get_body_files
+from .common import FILTER_FILE, BgenError
+from .project import _get_body_files, PATHS_DOCX_REF
 
 
 def _build_docx_metadata(project_path: Path, config: dict, tmpdir: Path, warnings: list[str]) -> Path:
@@ -23,11 +23,6 @@ def _build_docx_metadata(project_path: Path, config: dict, tmpdir: Path, warning
     """
     meta = dict(config.get("metadata") or {})
     meta.setdefault("lang", "ru")
-
-    if not meta.get("title"):
-        raise BgenError("metadata.title не задан в config.yaml")
-    if not meta.get("author"):
-        raise BgenError("metadata.author не задан в config.yaml")
 
     # cover-image не нужен для DOCX
     meta.pop("cover-image", None)
@@ -55,6 +50,7 @@ def _run_pandoc_docx(
         "--from", "markdown",
         "--to", "docx+empty_paragraphs",
         "--standalone",
+        "--lua-filter", str(FILTER_FILE),
         "--metadata-file", str(meta_path),
         "--resource-path", str(resource_path),
         "--reference-doc", str(reference_doc),
@@ -65,9 +61,6 @@ def _run_pandoc_docx(
         cmd.append("--verbose")
     if toc:
         cmd.append("--toc")
-    filter_path = BGEN_DIR / "filter_bgen.lua"
-    if filter_path.exists():
-        cmd.extend(["--lua-filter", str(filter_path)])
     cmd.extend(["-o", str(output)])
     cmd.extend(str(p) for p in md_files)
 
@@ -82,6 +75,7 @@ def _run_pandoc_docx(
 def _build_docx(
     project_path: Path,
     config: dict,
+    paths: dict[str, Path | None],
     output_dir: Path,
     env: dict,
     warnings: list[str],
@@ -98,21 +92,6 @@ def _build_docx(
 
     md_files = _get_body_files(project_path)
 
-    ref = docx_cfg.get("reference_doc")
-    if ref:
-        ref_path = (project_path / ref).resolve()
-        if not ref_path.exists():
-            raise BgenError(
-                f"docx.reference_doc: файл не найден: {ref_path}"
-            )
-    else:
-        ref_path = SCHEMAS_DIR / "reference.docx"
-        if not ref_path.exists():
-            raise BgenError(
-                f"дефолтный reference.docx не найден: {ref_path}. "
-                f"Проверьте дистрибутив bgen."
-            )
-
     keep_metadata = config.get("keep_metadata", False)
 
     toc = docx_cfg.get("toc", False)
@@ -122,7 +101,7 @@ def _build_docx(
         if keep_metadata:
             shutil.copy(meta_path, output_dir / "docx_metadata.yaml")
         _run_pandoc_docx(
-            md_files, meta_path, output_path, project_path, ref_path, config, toc, env, warnings
+            md_files, meta_path, output_path, project_path, paths[PATHS_DOCX_REF], config, toc, env, warnings
         )
 
     return output_path
