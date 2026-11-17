@@ -425,7 +425,7 @@ def _update_metadata_title_date(fb2_cfg: dict, title_info: ET.Element) -> None:
     title_date = fb2_cfg.get("title-date")
     if title_date:
         value = title_date.get("value")
-        text = title_date.get("text") or "" #config-defaults: необязательный параметр.
+        text = title_date.get("text") or "" #config-default: необязательный параметр.
         date_el = ET.SubElement(
             title_info, f"{{{FB2_NS}}}date", {"value": str(value)}
         )
@@ -436,26 +436,12 @@ def _update_metadata_sequence(fb2_cfg: dict, title_info: ET.Element) -> None:
     """Добавляет title-info/sequence из fb2.sequence (строка или {name, number, lang})."""
     sequences = fb2_cfg.get("sequence") or []
     for seq in sequences:
-        if isinstance(seq, str):
-            if not seq:
-                continue
-            ET.SubElement(title_info, f"{{{FB2_NS}}}sequence", {"name": seq})
-        elif isinstance(seq, dict):
-            if not seq.get("name"):
-                raise BgenError(
-                    f"fb2.sequence: словарь должен содержать 'name', получено {seq!r}"
-                )
-            attrs = {"name": str(seq["name"])}
-            if seq.get("number") is not None:
-                attrs["number"] = str(seq["number"])
-            if seq.get("lang"):
-                attrs[f"{{{XML_NS}}}lang"] = str(seq["lang"])
-            ET.SubElement(title_info, f"{{{FB2_NS}}}sequence", attrs)
-        else:
-            raise BgenError(
-                f"fb2.sequence: ожидается строка или словарь, "
-                f"получено {type(seq).__name__}"
-            )
+        attrs = {"name": str(seq["name"])}
+        if seq.get("number") is not None: #config-default: number и lang необязательны
+            attrs["number"] = str(seq["number"])
+        if seq.get("lang") is not None:
+            attrs[f"{{{XML_NS}}}lang"] = str(seq["lang"])
+        ET.SubElement(title_info, f"{{{FB2_NS}}}sequence", attrs)
 
 
 def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element) -> None:

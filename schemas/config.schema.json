@@ -106,29 +106,21 @@
           "type": "array",
           "default": [],
           "items": {
-            "oneOf": [
-              {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": {
+              "name": {
                 "type": "string",
                 "minLength": 1
               },
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["name"],
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "number": {
-                    "type": ["integer", "string"]
-                  },
-                  "lang": {
-                    "type": "string"
-                  }
-                }
+              "number": {
+                "type": ["integer", "string"]
+              },
+              "lang": {
+                "type": "string"
               }
-            ]
+            }
           }
         },
         "doc-author-copy-first-from-title": {"type": "boolean", "default": false},
