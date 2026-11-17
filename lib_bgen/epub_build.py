@@ -12,13 +12,12 @@ except ImportError:
     raise ImportError("Требуется PyYAML. Установите: pip install pyyaml")
 
 from .common import FILTER_FILE, BgenError
-from .project import _get_body_files, PATHS_EPUB_CSS, PATHS_EPUB_META_XML
+from .project import _get_body_files
 
 
 def _build_epub_metadata(
     project_path: Path,
     config: dict,
-    paths: dict [str, Path | None],
     tmpdir: Path,
     warnings: list[str]
 ) -> tuple[Path, Path | None, Path | None, Path | None]:
@@ -28,7 +27,7 @@ def _build_epub_metadata(
     отдельным флагом --epub-cover-image.
     Возвращает пути к [metadata.yaml, epub-metadata.xml, epub-metadata-addon.yaml,  epub-cover-image-path].
     """
-    meta = dict(config.get("metadata") or {})
+    meta = dict(config.get("metadata"))
     meta.setdefault("lang", "ru")
 
     meta_path = tmpdir / "metadata.yaml"
@@ -45,14 +44,14 @@ def _build_epub_metadata(
             cover_path = None
 
     # Выбираем дополнительную metadata
-    epub_cfg = config.get("epub") or {}
-    add_meta_mode = epub_cfg.get("add-meta-mode", "none")
+    epub_cfg = config.get("epub")
+    add_meta_mode = epub_cfg.get("add-meta-mode")
 
     add_meta_yaml_path = None
     add_meta_xml_path = None
 
     if add_meta_mode == "xml":
-        add_meta_xml_path = paths[PATHS_EPUB_META_XML]
+        add_meta_xml_path = epub_cfg.get("add-meta-xml-file")
     elif add_meta_mode == "yaml":
         add_meta_yaml = dict(epub_cfg.get("add-meta-yaml"))
         add_meta_yaml_path = tmpdir / "epub-metadata-addon.yaml"
@@ -70,9 +69,7 @@ def _run_pandoc_epub(
     output: Path,
     resource_path: Path,
     cover_path: Path | None,
-    css_path: Path | None,
     config: dict,
-    toc: bool,
     env: dict,
     warnings: list[str],
 ) -> None:
@@ -86,16 +83,20 @@ def _run_pandoc_epub(
         "--metadata-file", str(meta_path),
         "--resource-path", str(resource_path),
     ]
-    if config.get("trace", False):
+
+    epub_cfg = config.get("epub")
+
+    if config.get("trace"):
         cmd.append("--trace")
-    if config.get("verbose", False):
+    if config.get("verbose"):
         cmd.append("--verbose")
-    if toc:
+    if epub_cfg.get("toc"):
         cmd.append("--toc")
     if cover_path is not None and cover_path.exists():
         cmd.extend(["--epub-cover-image", str(cover_path)])
-    if css_path is not None and css_path.exists():
-        cmd.extend(["--css", str(css_path)])
+
+    cmd.extend(["--css", str(epub_cfg.get("css-file"))])
+
     if add_meta_yaml_path is not None:
         cmd.extend(["--metadata-file", str(add_meta_yaml_path)])
     if add_meta_xml_path is not None:
@@ -114,7 +115,6 @@ def _run_pandoc_epub(
 def _build_epub(
     project_path: Path,
     config: dict,
-    paths: dict[str, Path | None],
     output_dir: Path,
     env: dict,
     warnings: list[str],
@@ -126,22 +126,14 @@ def _build_epub(
     Если файл не найден — предупреждение, сборка продолжается.
     Возвращает путь к файлу. Бросает BgenError при ошибке Pandoc.
     """
-    epub_cfg = config.get("epub") or {}
-    output_file_base = config.get("output-file-base", "book")
-    output_name = output_file_base + ".epub"
-    output_path = output_dir / output_name
-
+    output_path = output_dir / f"{config.get("output-file-base")}.epub"
     md_files = _get_body_files(project_path)
-
-    # build table of contents
-    toc = epub_cfg.get("toc", False)
-
-    keep_metadata = config.get("keep-metadata", False)
+    keep_metadata = config.get("keep-metadata")
 
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
         meta_path, add_meta_xml_path, add_meta_yaml_path, cover_path = _build_epub_metadata(
-                project_path, config, paths, tmpdir, warnings,
+                project_path, config, tmpdir, warnings,
         )
         if keep_metadata:
             shutil.copy(meta_path, output_dir / "epub_metadata.yaml")
@@ -149,7 +141,7 @@ def _build_epub(
                 shutil.copy(add_meta_yaml_path, output_dir / "epub_addon_metadata.yaml")
         _run_pandoc_epub(
             md_files, meta_path, add_meta_yaml_path, add_meta_xml_path, output_path, project_path,
-            cover_path, paths[PATHS_EPUB_CSS], config, toc, env, warnings,
+            cover_path, config, env, warnings,
         )
 
     return output_path

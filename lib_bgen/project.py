@@ -1,6 +1,7 @@
 """Проект книги: конфигурация, файлы, статистика."""
 from __future__ import annotations
 
+import copy
 import re
 from pathlib import Path
 
@@ -11,6 +12,7 @@ except ImportError:
 
 try:
     import jsonschema
+    from jsonschema import validators
 except ImportError:
     raise ImportError("Требуется jsonschema. Установите: pip install jsonschema")
 
@@ -18,30 +20,103 @@ from .common import BgenError, KNOWN_FORMATS, SCHEMAS_DIR, TYPOGRAPHY_FILE
 
 CONFIG_SCHEMA_FILE = SCHEMAS_DIR / "config.schema.json"
 
-PATHS_TYPOG = "typography"
-PATHS_FB2_DESC = "fb2_description"
-PATHS_DOCX_REF = "reference_docx"
-PATHS_EPUB_CSS = "epub_css"
-PATHS_EPUB_META_XML = "epub_metadata"
-
 # ============================================================
 # Конфигурация
 # ============================================================
+def _resolve_file_paths(project_path: Path, config: dict) -> dict:
+    """Эффективные пути к «дополнительным файлам» проекта.
 
-def _load_config(project_path: Path) -> dict:
-    """Читает config.yaml проекта. Бросает BgenError, если файла нет."""
+    Не проверяет существование — только выбирает путь (конфиг → bgen/schemas).
+    Возвращает модифицированный путями конфиг.
+    """
+    fb2_cfg = config.get("fb2")
+    docx_cfg = config.get("docx")
+    epub_cfg = config.get("epub")
+
+    missing: list[str] = []
+
+    # config → bgen/schemas/typography.txt
+    file = config.get("typography-file")
+    file_path = (project_path / file).resolve() if file else TYPOGRAPHY_FILE
+    if not file_path.exists():
+        missing.append(f"файл не найден: {file_path}")
+    else:
+        config["typography-file"] = str(file_path)
+
+    # config → bgen/schemas/reference.docx
+    file = docx_cfg.get("reference-file")
+    file_path = (project_path / file).resolve() if file else SCHEMAS_DIR / "reference.docx"
+    if not file_path.exists():
+        missing.append(f"файл не найден: {file_path}")
+    else:
+        docx_cfg["reference-file"] = str(file_path)
+
+    # config → bgen/schemas/epub.css
+    file = epub_cfg.get("css-file")
+    file_path = (project_path / file).resolve() if file else SCHEMAS_DIR / "epub.css"
+    if not file_path.exists():
+        missing.append(f"файл не найден: {file_path}")
+    else:
+        epub_cfg["css-file"] = str(file_path)
+
+    # Тут нет дефолтных файлов в репозитории, поэтому файлы могут и отсутствовать и тогда не подменяются
+
+    # только если задан description-file
+    file = fb2_cfg.get("description-file")
+    file_path = (project_path / file).resolve() if file else None
+    if file_path and not file_path.exists():
+        missing.append(f"файл не найден: {file_path}")
+    elif file_path:
+        fb2_cfg["description-file"] = str(file_path)
+
+    # только если задан add-meta-xml-file
+    file = epub_cfg.get("add-meta-xml-file")
+    file_path = (project_path / file).resolve() if file else None
+    if file_path and not file_path.exists():
+        missing.append(f"файл не найден: {file_path}")
+    elif file_path:
+        epub_cfg["add-meta-xml-file"] = str(file_path)
+
+    if missing:
+        raise BgenError("\n".join(missing))
+
+    return config
+
+
+def _extend_with_default(validator_class):
+    """Расширяет валидатор jsonschema: перед проверкой properties
+    подставляет default из схемы для отсутствующих ключей.
+
+    Внимание: работает только внутри уже существующих объектов
+    (для секций нужен default: {}, для массивов - []).
+    """
+    validate_properties = validator_class.VALIDATORS["properties"]
+
+    def set_defaults(validator, properties, instance, schema):
+        for prop, subschema in properties.items():
+            if "default" in subschema:
+                instance.setdefault(prop, copy.deepcopy(subschema["default"]))
+        for error in validate_properties(validator, properties, instance, schema):
+            yield error
+
+    return validators.extend(validator_class, {"properties": set_defaults})
+
+
+DefaultValidatingValidator = _extend_with_default(jsonschema.Draft202012Validator)
+
+
+def _build_config(project_path: Path) -> dict:
+    """Читает config.yaml, валидирует по схеме и заполняет дефолтами.
+
+    Возвращает полную валидную конфигу (или бросает BgenError).
+    Дефолты берутся из config.schema.json (ключ default).
+    """
     config_path = project_path / "config.yaml"
     if not config_path.exists():
         raise BgenError(f"{config_path} не найден")
     with open(config_path, encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+        config = yaml.safe_load(f) or {}
 
-
-def _validate_config(config: dict) -> None:
-    """Валидация config.yaml по JSON Schema.
-
-    Бросает BgenError с человекочитаемыми ошибками (путь к полю + сообщение).
-    """
     if not CONFIG_SCHEMA_FILE.exists():
         raise BgenError(
             f"схема конфига не найдена: {CONFIG_SCHEMA_FILE}. "
@@ -56,20 +131,21 @@ def _validate_config(config: dict) -> None:
             f"не удалось загрузить схему конфига {CONFIG_SCHEMA_FILE}: {e}"
         )
 
-    validator = jsonschema.Draft202012Validator(schema)
+    validator = DefaultValidatingValidator(schema)
     errors = sorted(validator.iter_errors(config), key=lambda e: list(e.absolute_path))
 
-    if not errors:
-        return
+    if errors:
+        lines = []
+        for err in errors:
+            path = ".".join(str(p) for p in err.absolute_path) or "(root)"
+            lines.append(f"  {path}: {err.message}")
+        raise BgenError(
+            "config.yaml не прошёл валидацию по схеме:\n" + "\n".join(lines)
+        )
 
-    lines = []
-    for err in errors:
-        path = ".".join(str(p) for p in err.absolute_path) or "(root)"
-        lines.append(f"  {path}: {err.message}")
+    config = _resolve_file_paths(project_path, config)
 
-    raise BgenError(
-        "config.yaml не прошёл валидацию по схеме:\n" + "\n".join(lines)
-    )
+    return config
 
 
 def _validate_project_path(project_path: Path) -> Path:
@@ -95,8 +171,8 @@ def _resolve_formats(config: dict, only: str | None) -> list[str]:
 
     formats = []
     for fmt in KNOWN_FORMATS:
-        section = config.get(fmt) or {}
-        if section.get("enabled", False):
+        section = config.get(fmt)
+        if section.get("enabled"):
             formats.append(fmt)
 
     if not formats:
@@ -120,70 +196,6 @@ def _get_body_files(project_path: Path) -> list[Path]:
     return files
 
 
-def _resolve_file_paths(project_path: Path, config: dict) -> dict[str, Path | None]:
-    """Эффективные пути к «дополнительным файлам» проекта.
-
-    Не проверяет существование — только выбирает путь (конфиг → bgen/schemas).
-    Возвращает dict: имя → Path (или None, если файл не применим/не задан).
-
-    Имена:
-      typography         — typography.txt (config.yaml → bgen/schemas)
-      fb2_description    — fb2_description.xml (только если задан description_file)
-      reference_docx     — reference.docx (docx.reference-file → bgen/schemas)
-      epub_css           — epub.css (epub.css → bgen/schemas)
-      epub_metadata      — epub-metadata.xml (только если задан add-meta-xml-file)
-    """
-    fb2_cfg = config.get("fb2") or {}
-    docx_cfg = config.get("docx") or {}
-    epub_cfg = config.get("epub") or {}
-
-    paths: dict[str, Path | None] = {}
-
-    # config → bgen/schemas/typography.txt
-    typo = config.get("typography-file", "")
-    paths[PATHS_TYPOG] = (project_path / typo).resolve() if typo else TYPOGRAPHY_FILE
-
-    # только если задан description-file
-    desc_rel = fb2_cfg.get("description-file", "")
-    paths[PATHS_FB2_DESC] = (project_path / desc_rel).resolve() if desc_rel else None
-
-    # config → bgen/schemas/reference.docx
-    ref = docx_cfg.get("reference-file", "")
-    paths[PATHS_DOCX_REF] = (project_path / ref).resolve() if ref else SCHEMAS_DIR / "reference.docx"
-
-    # config → bgen/schemas/epub.css
-    css = epub_cfg.get("css-file", "")
-    paths[PATHS_EPUB_CSS] = (project_path / css).resolve() if css else SCHEMAS_DIR / "epub.css"
-
-    # только если задан add-meta-xml-file
-    meta_file = epub_cfg.get("add-meta-xml-file", "")
-    paths[PATHS_EPUB_META_XML] = (project_path / meta_file).resolve() if meta_file else None
-
-    return paths
-
-
-def _check_file_paths(
-    paths: dict[str, Path | None],
-    warnings: list[str],
-    strict: bool,
-) -> None:
-    """Проверяет существование файлов из _resolve_file_paths.
-
-    strict=True  — BgenError на первый отсутствующий файл (для build).
-    strict=False — warning на каждый отсутствующий файл (для check).
-    """
-    missing: list[str] = []
-    for name, path in paths.items():
-        if path is None:
-            continue
-        if not path.exists():
-            missing.append(f"{name}: файл не найден: {path}")
-
-    if strict:
-        if missing:
-            raise BgenError("\n".join(missing))
-    else:
-        warnings.extend(missing)
 
 
 # ============================================================
@@ -216,9 +228,11 @@ def _get_stat_from_md(files: list[Path]) -> dict:
     }
 
 
-def stat(project_path: Path) -> dict | None:
+def stat(project_path: Path) -> tuple[dict | None, str]:
     """Статистика текста проекта. Возвращает dict или None, если файлов нет."""
     project_path = _validate_project_path(project_path)
     files = _get_body_files(project_path)
-    return _get_stat_from_md(files)
+    config = _build_config(project_path)
+    return _get_stat_from_md(files), yaml.safe_dump(config, allow_unicode=True, sort_keys=False, default_flow_style=False)
+
 

@@ -16,6 +16,8 @@ from ..common import (
 
 PROGRAM_USED = f"{PROGRAM_TITLE}: {PROGRAM_NAME}-{PROGRAM_VERSION}"
 
+FALLBACK_DOCUMENT_VERSION = "1.0"
+
 FB2_NS = "http://www.gribuser.ru/xml/fictionbook/2.0"
 XML_NS = "http://www.w3.org/XML/1998/namespace"
 
@@ -31,17 +33,17 @@ _DOC_INFO_ORDER = [
 
 def _make_book_id(config: dict) -> str:
     """Возвращает id книги: явный из fb2.id или UUID5 от title+author+lang."""
-    fb2_cfg = config.get("fb2") or {}
-    explicit = fb2_cfg.get("id")
+    explicit = config.get("fb2").get("id")
     if explicit:
         return str(explicit)
 
-    meta = config.get("metadata") or {}
-    title = meta.get("title", "")
-    authors = meta.get("author") or []
+    meta = config.get("metadata")
+    title = meta.get("title")
+    authors = meta.get("author")
     author_str = "|".join(str(a) for a in authors)
-    lang = meta.get("lang", "ru")
+    lang = meta.get("lang")
     key = f"{title}|{author_str}|{lang}"
+
     return str(uuid.uuid5(uuid.NAMESPACE_URL, key))
 
 
@@ -138,7 +140,6 @@ def _update_book_elements_from_body(body: ET.Element, title_info: ET.Element) ->
 def _apply_custom_description(
     root: ET.Element,
     config: dict,
-    desc_path: Path | None,
     generated_title_info: ET.Element,
     generated_doc_info: ET.Element,
     warnings: list[str],
@@ -151,10 +152,12 @@ def _apply_custom_description(
                на сгенерированное. Новых элементов не добавляет.
     override — заменяет <description> целиком на содержимое файла.
     """
-    fb2_cfg = config.get("fb2") or {}
-    mode = fb2_cfg.get("description-mode", "auto")
+    fb2_cfg = config.get("fb2")
+    mode = fb2_cfg.get("description-mode")
     if mode == "auto":
         return
+
+    desc_path = fb2_cfg.get("description-file")
 
     try:
         custom_tree = ET.parse(desc_path)
@@ -367,7 +370,7 @@ def _update_metadata_genres(fb2_cfg: dict, title_info: ET.Element) -> None:
         match = g.get("match")
         genre_el = ET.SubElement(title_info, f"{{{FB2_NS}}}genre")
         genre_el.text = name
-        if match is not None: #config-default: match необязателен, в конфигу дефлт подставляться не будет.
+        if match:
             genre_el.set("match", str(match))
 
 
@@ -385,7 +388,7 @@ def _update_metadata_authors(fb2_cfg: dict, title_info: ET.Element, doc_info: ET
         return bool(a.get("first-name") and a.get("last-name"))
 
     ns = {"fb": FB2_NS}
-    title_authors = fb2_cfg.get("title-author") or []
+    title_authors = fb2_cfg.get("title-author")
 
     # Нормализуем: убираем пустые строки и невалидные словари
     title_authors = [
@@ -405,7 +408,7 @@ def _update_metadata_authors(fb2_cfg: dict, title_info: ET.Element, doc_info: ET
                     ET.SubElement(author_el, f"{{{FB2_NS}}}{field}").text = str(val)
             # Множественные поля --- home-page, email (порядок!)
             for field in ("home-page", "email"):
-                values = author.get(field) or []
+                values = author.get(field)
                 for v in values:
                     if v:
                         ET.SubElement(author_el, f"{{{FB2_NS}}}{field}").text = str(v)
@@ -413,7 +416,7 @@ def _update_metadata_authors(fb2_cfg: dict, title_info: ET.Element, doc_info: ET
             if author.get("id"):
                 ET.SubElement(author_el, f"{{{FB2_NS}}}id").text = str(author["id"])
 
-    copy_author = fb2_cfg.get("doc-author-copy-first-from-title", False)
+    copy_author = fb2_cfg.get("doc-author-copy-first-from-title")
     if copy_author:
         first_title_author = title_info.find("fb:author", ns)
         if first_title_author is not None:
@@ -423,30 +426,35 @@ def _update_metadata_authors(fb2_cfg: dict, title_info: ET.Element, doc_info: ET
 def _update_metadata_title_date(fb2_cfg: dict, title_info: ET.Element) -> None:
     """Добавляет title-info/date из fb2.title-date ({value, text})."""
     title_date = fb2_cfg.get("title-date")
-    if title_date:
-        value = title_date.get("value")
-        text = title_date.get("text") or "" #config-default: необязательный параметр.
-        date_el = ET.SubElement(
-            title_info, f"{{{FB2_NS}}}date", {"value": str(value)}
-        )
-        date_el.text = str(text)
+    if not title_date:
+        return
+
+    value = title_date.get("value")
+    text = title_date.get("text")
+
+    if not value and not text:
+        return
+
+    attrs = {"value": str(value)} if value else {}
+    date_el = ET.SubElement(title_info, f"{{{FB2_NS}}}date", attrs)
+    date_el.text = str(text) if text else (str(value) if value else None)
 
 
 def _update_metadata_sequence(fb2_cfg: dict, title_info: ET.Element) -> None:
     """Добавляет title-info/sequence из fb2.sequence (строка или {name, number, lang})."""
-    sequences = fb2_cfg.get("sequence") or []
+    sequences = fb2_cfg.get("sequence")
     for seq in sequences:
         attrs = {"name": str(seq["name"])}
-        if seq.get("number") is not None: #config-default: number и lang необязательны
+        if seq.get("number"):
             attrs["number"] = str(seq["number"])
-        if seq.get("lang") is not None:
+        if seq.get("lang"):
             attrs[f"{{{XML_NS}}}lang"] = str(seq["lang"])
         ET.SubElement(title_info, f"{{{FB2_NS}}}sequence", attrs)
 
 
 def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element) -> None:
     """Заполняет title-info и document-info значениями из config.yaml."""
-    fb2_cfg = config.get("fb2") or {}
+    fb2_cfg = config.get("fb2")
     ns = {"fb": FB2_NS}
 
     # title-info/genre --- обязателен, может быть несколько и с атрибутом match
@@ -457,7 +465,7 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
     _update_metadata_authors(fb2_cfg, title_info, doc_info)
 
     # title-info/keywords --- опциональны, удобны для позиционирования наряду с жанрами, список строк через запятую
-    keywords = fb2_cfg.get("keywords") or []
+    keywords = fb2_cfg.get("keywords")
     if keywords:
         for old in title_info.findall("fb:keywords", ns):
             title_info.remove(old)
@@ -484,13 +492,16 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
     id_el.text = book_id
 
     # document-info/version --- обязательна
-    version_val = fb2_cfg.get("version") or "1.0"
+    # программный дефолт. В схеме конфиги "" - обрабатываем
+    # единообразно с тем, как вобще бы не выставили
+    version_val = fb2_cfg.get("version") or FALLBACK_DOCUMENT_VERSION
+
     version_el = doc_info.find("fb:version", ns)
     if version_el is None:
         version_el = ET.SubElement(doc_info, f"{{{FB2_NS}}}version")
     version_el.text = str(version_val)
 
-    # document-info/date --- обязательна
+    # document-info/date --- обязательна по fb2_xsd. В конфиге, если не указали, то сегодня
     date_val = fb2_cfg.get("date") or date_cls.today().isoformat()
     for old in doc_info.findall("fb:date", ns):
         doc_info.remove(old)
@@ -500,7 +511,6 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
 def _postprocess_fb2(
     fb2_path: Path,
     config: dict,
-    desc_path: Path | None,
     warnings: list[str],
 ) -> None:
     """Постобработка сгенерированного Pandoc FB2.
@@ -532,12 +542,9 @@ def _postprocess_fb2(
     _sort_children_by_order(doc_info, _DOC_INFO_ORDER)
 
     # fb2_description.xml (template / override)
-    _apply_custom_description(root, config, desc_path, title_info, doc_info, warnings)
+    _apply_custom_description(root, config, title_info, doc_info, warnings)
 
     # Печать финального fb2 в файл 
-    fb2_cfg = config.get("fb2") or {}
-    print_mode = fb2_cfg.get("print-mode", "pretty")
-
-    _write_fb2(tree, print_mode, fb2_path, warnings)
+    _write_fb2(tree, config.get("fb2").get("print-mode"), fb2_path, warnings)
 
 

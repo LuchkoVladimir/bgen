@@ -13,7 +13,7 @@ except ImportError:
     raise ImportError("Требуется PyYAML. Установите: pip install pyyaml")
 
 from ..common import FILTER_FILE, BgenError
-from ..project import _get_body_files, PATHS_FB2_DESC
+from ..project import _get_body_files
 from .postprocess import _postprocess_fb2
 from .validate import _validate_fb2
 
@@ -29,7 +29,7 @@ def _build_pandoc_metadata(
     warnings - внешний, для добавления предупреждений
     Возвращает путь к metadata.yaml.
     """
-    meta = dict(config.get("metadata") or {})
+    meta = dict(config.get("metadata"))
     meta.setdefault("lang", "ru")
 
     cover = meta.get("cover-image")
@@ -68,9 +68,9 @@ def _run_pandoc_fb2(
         "--resource-path", str(resource_path),
         "--wrap", wrap_mode,
     ]
-    if config.get("trace", False):
+    if config.get("trace"):
         cmd.append("--trace")
-    if config.get("verbose", False):
+    if config.get("verbose"):
         cmd.append("--verbose")
     cmd.extend(["-o", str(output)])
     cmd.extend(str(p) for p in md_files)
@@ -85,7 +85,6 @@ def _run_pandoc_fb2(
 def _build_fb2(
     project_path: Path,
     config: dict,
-    paths: dict[str, Path | None],
     output_dir: Path,
     env: dict,
     warnings: list[str],
@@ -97,23 +96,19 @@ def _build_fb2(
     Бросает BgenError при ошибке.
     Возвращает (путь к файлу).
     """
-    fb2_cfg = config.get("fb2") or {}
-    output_file_base = config.get("output-file-base", "book")
-    output_name = output_file_base + ".fb2"
-    output_path = output_dir / output_name
-
+    output_path = output_dir / f"{config.get("output-file-base")}.fb2"
+    fb2_cfg = config.get("fb2")
     md_files = _get_body_files(project_path)
-
-    keep_metadata = config.get("keep-metadata", False)
+    keep_metadata = config.get("keep-metadata")
 
     # print mode: pretty/toleft/src → wrap_mode
-    print_mode = fb2_cfg.get("print-mode", "pretty")
+    print_mode = fb2_cfg.get("print-mode")
     wrap_map = {
         "pretty": "auto",
         "toleft": "auto",
         "src": "preserve",
     }
-    wrap_mode = wrap_map.get(print_mode, "auto")
+    wrap_mode = wrap_map.get(print_mode)
 
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
@@ -123,7 +118,7 @@ def _build_fb2(
         _run_pandoc_fb2(md_files, meta_path, output_path, project_path, wrap_mode, config, env, warnings)
 
     # pandoc формирует fb2 со множеством проблем, поэтому требуется постобработка
-    _postprocess_fb2(output_path, config, paths[PATHS_FB2_DESC], warnings)
+    _postprocess_fb2(output_path, config, warnings)
 
     xsd_errors = _validate_fb2(output_path)
     if xsd_errors:
@@ -131,7 +126,7 @@ def _build_fb2(
         raise BgenError(f"FB2 не прошёл валидацию по XSD:\n{error_text}")
 
     # fb2.zip: сжать рядом (не вместо)
-    if fb2_cfg.get("zip", False):
+    if fb2_cfg.get("zip"):
         zip_path = output_path.with_suffix(output_path.suffix + ".zip")  # book.fb2.zip
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.write(output_path, arcname=output_path.name)

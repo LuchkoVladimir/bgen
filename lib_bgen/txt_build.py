@@ -33,9 +33,9 @@ def _run_pandoc_txt(
         "--lua-filter", str(FILTER_FILE),
         "--resource-path", str(resource_path),
     ]
-    if config.get("trace", False):
+    if config.get("trace"):
         cmd.append("--trace")
-    if config.get("verbose", False):
+    if config.get("verbose"):
         cmd.append("--verbose")
     cmd.extend(["-o", str(output)])
     cmd.extend(str(p) for p in md_files)
@@ -57,10 +57,7 @@ def _make_card(config: dict) -> str:
     meta = config.get("metadata")
     title = meta.get("title")
     authors = meta.get("author")
-    if isinstance(authors, str):
-        authors = [authors]
     authors = [str(a) for a in authors if a]
-
     lines = authors + [title, ""]
     return "\n".join(lines) + "\n"
 
@@ -79,14 +76,11 @@ def _build_txt(
     в начало, если config.yaml: txt.card: true.
     Возвращает путь к файлу. Бросает BgenError при ошибке Pandoc.
     """
-    txt_cfg = config.get("txt") or {}
-    output_file_base = config.get("output-file-base", "book")
-    output_name = output_file_base + ".txt"
-    output_path = output_dir / output_name
-
-    columns = txt_cfg.get("columns", 80)
-    wrap_mode = txt_cfg.get("wrap-mode", "auto")
-    card = txt_cfg.get("card", False)
+    output_path = output_dir / f"{config.get("output-file-base")}.txt"
+    txt_cfg = config.get("txt")
+    columns = txt_cfg.get("columns")
+    wrap_mode = txt_cfg.get("wrap-mode")
+    card = txt_cfg.get("card")
 
     md_files = _get_body_files(project_path)
 

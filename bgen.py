@@ -25,7 +25,7 @@ def cmd_build(args):
 
 def cmd_stat(args):
     try:
-        stats = lib_bgen.stat(Path(args.path))
+        stats, config = lib_bgen.stat(Path(args.path))
     except lib_bgen.BgenError as e:
         print(f"Ошибка: {e}", file=sys.stderr)
         sys.exit(1)
@@ -34,6 +34,7 @@ def cmd_stat(args):
         print("Не найдено текстовых файлов.")
         return
 
+    print(f"Конфигурация: {config}")
     print(f"Файлов учтено: {stats['files']}")
     print(f"Знаков с пробелами: {stats['chars_with_spaces']}")
     print(f"Знаков без пробелов: {stats['chars_no_spaces']}")
