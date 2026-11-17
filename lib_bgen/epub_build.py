@@ -132,7 +132,7 @@ def _build_epub(
     # build table of contents
     toc = epub_cfg.get("toc", False)
 
-    keep_metadata = config.get("keep_metadata", False)
+    keep_metadata = config.get("keep-metadata", False)
 
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)

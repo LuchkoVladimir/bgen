@@ -104,7 +104,7 @@ def _build_fb2(
 
     md_files = _get_body_files(project_path)
 
-    keep_metadata = config.get("keep_metadata", False)
+    keep_metadata = config.get("keep-metadata", False)
 
     # print mode: pretty/toleft/src → wrap
     print_mode = fb2_cfg.get("print", "pretty")

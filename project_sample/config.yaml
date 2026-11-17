@@ -9,7 +9,7 @@
 # Директория для результатов сборки. Создаётся автоматически.
 # Может быть относительной (от корня проекта) или абсолютной.
 # Примеры: "output", "../books", "/home/user/books".
-output_dir: output
+output-dir: output
 output-file-base: book
 
 # ------------------------------------------------------------
@@ -28,7 +28,7 @@ trace: false
 verbose: false
 # Сохранять временные metadata.yaml в output_dir
 # (<format>_metadata.yaml, <format>_addon_metadata.yaml для EPUB).
-keep_metadata: false
+keep-metadata: false
 
 # ------------------------------------------------------------
 # Метаданные для Pandoc

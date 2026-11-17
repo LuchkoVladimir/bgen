@@ -93,7 +93,7 @@ def _build_docx(
 
     md_files = _get_body_files(project_path)
 
-    keep_metadata = config.get("keep_metadata", False)
+    keep_metadata = config.get("keep-metadata", False)
 
     toc = docx_cfg.get("toc", False)
     with tempfile.TemporaryDirectory() as tmp:
