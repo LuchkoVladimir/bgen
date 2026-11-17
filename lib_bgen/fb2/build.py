@@ -52,7 +52,7 @@ def _run_pandoc_fb2(
     meta_path: Path,
     output: Path,
     resource_path: Path,
-    wrap: str,
+    wrap_mode: str,
     config: dict,
     env: dict,
     warnings: list[str],
@@ -66,7 +66,7 @@ def _run_pandoc_fb2(
         "--lua-filter", str(FILTER_FILE),
         "--metadata-file", str(meta_path),
         "--resource-path", str(resource_path),
-        "--wrap", wrap,
+        "--wrap", wrap_mode,
     ]
     if config.get("trace", False):
         cmd.append("--trace")
@@ -106,21 +106,21 @@ def _build_fb2(
 
     keep_metadata = config.get("keep-metadata", False)
 
-    # print mode: pretty/toleft/src → wrap
+    # print mode: pretty/toleft/src → wrap_mode
     print_mode = fb2_cfg.get("print-mode", "pretty")
     wrap_map = {
         "pretty": "auto",
         "toleft": "auto",
         "src": "preserve",
     }
-    wrap = wrap_map.get(print_mode, "auto")
+    wrap_mode = wrap_map.get(print_mode, "auto")
 
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
         meta_path = _build_pandoc_metadata(project_path, config, tmpdir, warnings)
         if keep_metadata:
             shutil.copy(meta_path, output_dir / "fb2_metadata.yaml")   
-        _run_pandoc_fb2(md_files, meta_path, output_path, project_path, wrap, config, env, warnings)
+        _run_pandoc_fb2(md_files, meta_path, output_path, project_path, wrap_mode, config, env, warnings)
 
     # pandoc формирует fb2 со множеством проблем, поэтому требуется постобработка
     _postprocess_fb2(output_path, config, paths[PATHS_FB2_DESC], warnings)

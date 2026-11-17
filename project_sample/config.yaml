@@ -241,6 +241,6 @@ txt:
   # Ширина строки в символах (--columns).
   columns: 80
   # Перенос строк: auto / none / preserve (--wrap).
-  wrap: auto
+  wrap-mode: auto
   # Добавлять карточку (author, title) в начало.
   card: true

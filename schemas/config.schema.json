@@ -221,7 +221,7 @@
       "properties": {
         "enabled":      { "type": "boolean",                                        "default": false },
         "columns":      { "type": "integer", "minimum": 1,                          "default": 80 },
-        "wrap":         { "type": "string", "enum": ["auto", "none", "preserve"],   "default": "auto" },
+        "wrap-mode":    { "type": "string", "enum": ["auto", "none", "preserve"],   "default": "auto" },
         "card":         { "type": "boolean",                                        "default": false }
       }
     }

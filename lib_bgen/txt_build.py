@@ -13,7 +13,7 @@ def _run_pandoc_txt(
     output: Path,
     resource_path: Path,
     columns: int,
-    wrap: str,
+    wrap_mode: str,
     config: dict,
     env: dict,
     warnings: list[str],
@@ -29,7 +29,7 @@ def _run_pandoc_txt(
         "--from", "markdown",
         "--to", "plain",
         "--columns", str(columns),
-        "--wrap", wrap,
+        "--wrap", wrap_mode,
         "--lua-filter", str(FILTER_FILE),
         "--resource-path", str(resource_path),
     ]
@@ -85,13 +85,13 @@ def _build_txt(
     output_path = output_dir / output_name
 
     columns = txt_cfg.get("columns", 80)
-    wrap = txt_cfg.get("wrap", "auto")
+    wrap_mode = txt_cfg.get("wrap-mode", "auto")
     card = txt_cfg.get("card", False)
 
     md_files = _get_body_files(project_path)
 
     _run_pandoc_txt(
-        md_files, output_path, project_path, columns, wrap, config, env, warnings,
+        md_files, output_path, project_path, columns, wrap_mode, config, env, warnings,
     )
 
     if card:
