@@ -230,7 +230,7 @@ docx:
   enabled: true
   # Путь к reference.docx относительно корня проекта.
   # Если пусто — используется bgen/schemas/reference.docx (дефолтный).
-  reference_doc: ""
+  reference-file: ""
   toc: true
 
 # ------------------------------------------------------------

@@ -20,7 +20,7 @@ CONFIG_SCHEMA_FILE = SCHEMAS_DIR / "config.schema.json"
 
 PATHS_TYPOG = "typography"
 PATHS_FB2_DESC = "fb2_description"
-PATHS_DOCX_REF = "reference_doc"
+PATHS_DOCX_REF = "reference_docx"
 PATHS_EPUB_CSS = "epub_css"
 PATHS_EPUB_META_XML = "epub_metadata"
 
@@ -129,7 +129,7 @@ def _resolve_file_paths(project_path: Path, config: dict) -> dict[str, Path | No
     Имена:
       typography         — typography.txt (config.yaml → bgen/schemas)
       fb2_description    — fb2_description.xml (только если задан description_file)
-      reference_doc      — reference.docx (docx.reference_doc → bgen/schemas)
+      reference_docx     — reference.docx (docx.reference-file → bgen/schemas)
       epub_css           — epub.css (epub.css → bgen/schemas)
       epub_metadata      — epub-metadata.xml (только если задан metadata-file)
     """
@@ -147,8 +147,8 @@ def _resolve_file_paths(project_path: Path, config: dict) -> dict[str, Path | No
     desc_rel = fb2_cfg.get("description-file", "")
     paths[PATHS_FB2_DESC] = (project_path / desc_rel).resolve() if desc_rel else None
 
-    # reference_doc: config → bgen/schemas/reference.docx
-    ref = docx_cfg.get("reference_doc", "")
+    # reference_docx: config → bgen/schemas/reference.docx
+    ref = docx_cfg.get("reference-file", "")
     paths[PATHS_DOCX_REF] = (project_path / ref).resolve() if ref else SCHEMAS_DIR / "reference.docx"
 
     # epub_css: config → bgen/schemas/epub.css

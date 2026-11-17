@@ -35,7 +35,7 @@ def build(
     _validate_config(config)
 
     # Централизованная проверка «дополнительных файлов» (typography,
-    # fb2_description, reference_doc, epub_css, epub_metadata).
+    # fb2_description, reference_docx, epub_css, epub_metadata).
     paths = _resolve_file_paths(project_path, config)
     _check_file_paths(paths, warnings, strict=True)
 

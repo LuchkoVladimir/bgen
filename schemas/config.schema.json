@@ -231,7 +231,7 @@
       "additionalProperties": false,
       "properties": {
         "enabled":        { "type": "boolean",                                      "default": false },
-        "reference_doc":  { "type": "string",                                       "default": "" },
+        "reference-file": { "type": "string",                                       "default": "" },
         "toc":            { "type": "boolean",                                      "default": false }
       }
     },
