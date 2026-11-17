@@ -172,7 +172,7 @@
       "additionalProperties": false,
       "properties": {
         "enabled":        { "type": "boolean",                                      "default": false },
-        "css":            { "type": "string",                                       "default": "" },
+        "css-file":       { "type": "string",                                       "default": "" },
         "toc":            { "type": "boolean",                                      "default": false },
         "metadata-file":  { "type": "string",                                       "default": "" },
         "metadata":       { "type": "object", "additionalProperties": true,         "default": {}}

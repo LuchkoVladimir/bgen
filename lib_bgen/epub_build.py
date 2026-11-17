@@ -118,7 +118,7 @@ def _build_epub(
     """Собирает EPUB: pandoc + обложка (metadata.cover-image) + CSS.
 
     cover-image: из config.yaml (metadata.cover-image), если файл есть.
-    css: из config.yaml (epub.css) или bgen/epub.css (дефолтный).
+    css: из config.yaml (epub.css-file) или bgen/schemas/epub.css (дефолтный).
     Если файл не найден — предупреждение, сборка продолжается.
     Возвращает путь к файлу. Бросает BgenError при ошибке Pandoc.
     """

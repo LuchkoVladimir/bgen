@@ -152,7 +152,7 @@ def _resolve_file_paths(project_path: Path, config: dict) -> dict[str, Path | No
     paths[PATHS_DOCX_REF] = (project_path / ref).resolve() if ref else SCHEMAS_DIR / "reference.docx"
 
     # epub_css: config → bgen/schemas/epub.css
-    css = epub_cfg.get("css", "")
+    css = epub_cfg.get("css-file", "")
     paths[PATHS_EPUB_CSS] = (project_path / css).resolve() if css else SCHEMAS_DIR / "epub.css"
 
     # epub_metadata: только если задан metadata-file
