@@ -421,20 +421,11 @@ def _update_metadata_authors(fb2_cfg: dict, title_info: ET.Element, doc_info: ET
 
 
 def _update_metadata_title_date(fb2_cfg: dict, title_info: ET.Element) -> None:
-    """Добавляет title-info/date из fb2.title-date (строка или {value, text})."""
+    """Добавляет title-info/date из fb2.title-date ({value, text})."""
     title_date = fb2_cfg.get("title-date")
     if title_date:
-        if isinstance(title_date, dict):
-            value = title_date.get("value")
-            text = title_date.get("text") or value
-            if not value:
-                raise BgenError(
-                    "fb2.title-date: словарь должен содержать 'value' (ISO)"
-                )
-        else:
-            value = str(title_date)
-            text = value
-
+        value = title_date.get("value")
+        text = title_date.get("text") or "" #config-defaults: необязательный параметр.
         date_el = ET.SubElement(
             title_info, f"{{{FB2_NS}}}date", {"value": str(value)}
         )

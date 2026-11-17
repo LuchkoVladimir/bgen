@@ -88,25 +88,19 @@
           }
         },
         "title-date": {
-          "oneOf": [
-            {
-              "type": "string"
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value"],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
             },
-            {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["value"],
-              "properties": {
-                "value": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "text": {
-                  "type": "string"
-                }
-              }
+            "text": {
+              "type": "string",
+              "default": ""
             }
-          ]
+          }
         },
         "sequence": {
           "type": "array",
