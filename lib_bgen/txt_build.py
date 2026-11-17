@@ -80,7 +80,8 @@ def _build_txt(
     Возвращает путь к файлу. Бросает BgenError при ошибке Pandoc.
     """
     txt_cfg = config.get("txt") or {}
-    output_name = txt_cfg.get("output_name", "book.txt")
+    output_file_base = config.get("output-file-base", "book")
+    output_name = output_file_base + ".txt"
     output_path = output_dir / output_name
 
     columns = txt_cfg.get("columns", 80)

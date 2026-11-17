@@ -10,6 +10,7 @@
 # Может быть относительной (от корня проекта) или абсолютной.
 # Примеры: "output", "../books", "/home/user/books".
 output_dir: output
+output-file-base: book
 
 # ------------------------------------------------------------
 # Типографика
@@ -52,7 +53,6 @@ metadata:
 
 fb2:
   enabled: true
-  output_name: book.fb2
 
   # Режим вывода XML (структура + --wrap):
   #   pretty  — indent 2, --wrap auto (читаемо; дефолт).
@@ -201,7 +201,6 @@ fb2:
 # ------------------------------------------------------------
 epub:
   enabled: true
-  output_name: book.epub
   # Путь к CSS относительно корня проекта.
   # Если пусто — используется bgen/schemas/epub.css (дефолтный).
   css: ""
@@ -229,7 +228,6 @@ epub:
 # ------------------------------------------------------------
 docx:
   enabled: true
-  output_name: book.docx
   # Путь к reference.docx относительно корня проекта.
   # Если пусто — используется bgen/schemas/reference.docx (дефолтный).
   reference_doc: ""
@@ -240,7 +238,6 @@ docx:
 # ------------------------------------------------------------
 txt:
   enabled: true
-  output_name: book.txt
   # Ширина строки в символах (--columns).
   columns: 80
   # Перенос строк: auto / none / preserve (--wrap).

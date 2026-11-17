@@ -87,7 +87,8 @@ def _build_docx(
     Возвращает путь к файлу. Бросает BgenError при ошибке Pandoc.
     """
     docx_cfg = config.get("docx") or {}
-    output_name = docx_cfg.get("output_name", "book.docx")
+    output_file_base = config.get("output-file-base", "book")
+    output_name = output_file_base + ".docx"
     output_path = output_dir / output_name
 
     md_files = _get_body_files(project_path)

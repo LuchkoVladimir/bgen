@@ -123,7 +123,8 @@ def _build_epub(
     Возвращает путь к файлу. Бросает BgenError при ошибке Pandoc.
     """
     epub_cfg = config.get("epub") or {}
-    output_name = epub_cfg.get("output_name", "book.epub")
+    output_file_base = config.get("output-file-base", "book")
+    output_name = output_file_base + ".epub"
     output_path = output_dir / output_name
 
     md_files = _get_body_files(project_path)

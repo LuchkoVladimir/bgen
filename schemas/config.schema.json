@@ -7,6 +7,7 @@
   "required": ["metadata"],
   "properties": {
     "output_dir":     { "type": "string", "default": "output" },
+    "output-file-base":{"type": "string", "default": "book" },
     "typography":     { "type": "string", "default": "" },
     "trace":          { "type": "boolean", "default": false },
     "verbose":        { "type": "boolean", "default": false },
@@ -34,7 +35,6 @@
       "additionalProperties": false,
       "properties": {
         "enabled":          { "type": "boolean",  "defualt": false      },
-        "output_name":      { "type": "string",   "defualt": "book.fb2" },
         "print":            { "type": "string",   "defualt": "pretty",
           "enum": ["pretty", "toleft", "src"]                           },
         "zip":              { "type": "boolean",  "defualt": false      },
@@ -193,7 +193,6 @@
       "additionalProperties": false,
       "properties": {
         "enabled":        { "type": "boolean",                                      "default": false },
-        "output_name":    { "type": "string",                                       "default": "book.epub" },
         "css":            { "type": "string",                                       "default": "" },
         "toc":            { "type": "boolean",                                      "default": false },
         "metadata-file":  { "type": "string",                                       "default": "" },
@@ -232,7 +231,6 @@
       "additionalProperties": false,
       "properties": {
         "enabled":        { "type": "boolean",                                      "default": false },
-        "output_name":    { "type": "string",                                       "default": "book.docx" },
         "reference_doc":  { "type": "string",                                       "default": "" },
         "toc":            { "type": "boolean",                                      "default": false }
       }
@@ -243,7 +241,6 @@
       "additionalProperties": false,
       "properties": {
         "enabled":      { "type": "boolean",                                        "default": false },
-        "output_name":  { "type": "string",                                         "default": "book.txt" },
         "columns":      { "type": "integer", "minimum": 1,                          "default": 80 },
         "wrap":         { "type": "string", "enum": ["auto", "none", "preserve"],   "default": "auto" },
         "card":         { "type": "boolean",                                        "default": false }
