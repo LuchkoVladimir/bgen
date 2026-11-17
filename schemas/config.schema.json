@@ -157,35 +157,14 @@
         "id":                               {"type": "string",  "default": ""},
         "version":                          {"type": "string",  "default": ""}
       },
-      "allOf": [
-        {
-          "if": {
-            "properties": { "description": { "enum": ["template", "override"] } },
-            "required": ["description"]
-          },
-          "then": {
-            "required": ["description-file"],
-            "properties": { "description-file": { "minLength": 1 } }
-          }
-        },
-        {
-          "if": {
-            "properties": { "description": { "enum": ["auto"] } },
-            "required": ["description"]
-          },
-          "then": {
-            "properties": { "description-file": { "maxLength": 0 } }
-          }
-        },
-        {
-          "if": {
-            "not": { "required": ["description"] }
-          },
-          "then": {
-            "properties": { "description-file": { "maxLength": 0 } }
-          }
-        }
-      ]
+      "if": {
+        "properties": { "description": { "enum": ["template", "override"] } },
+        "required": ["description"]
+      },
+      "then": {
+        "required": ["description-file"],
+        "properties": { "description-file": { "minLength": 1 } }
+      }
     },
     "epub": {
       "type": "object",
