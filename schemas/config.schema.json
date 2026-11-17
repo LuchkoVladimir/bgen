@@ -174,32 +174,27 @@
         "enabled":        { "type": "boolean",                                      "default": false },
         "css-file":       { "type": "string",                                       "default": "" },
         "toc":            { "type": "boolean",                                      "default": false },
-        "metadata-file":  { "type": "string",                                       "default": "" },
-        "metadata":       { "type": "object", "additionalProperties": true,         "default": {}}
+        "add-meta-mode":     { "type": "string", "enum": ["none", "yaml", "xml"],   "default": "none" },
+        "add-meta-xml-file": { "type": "string",                                    "default": "" },
+        "add-meta-yaml":     { "type": "object", "additionalProperties": true,      "default": {}}
       },
       "allOf": [
         {
           "if": {
-            "properties": { "metadata-file": { "minLength": 1 } },
-            "required": ["metadata-file"]
+            "properties": { "add-meta-mode": { "enum": ["yaml"] } },
+            "required": ["add-meta-mode"]
           },
           "then": {
-            "not": {
-              "properties": { "metadata": { "minProperties": 1 } },
-              "required": ["metadata"]
-            }
-          }
-        },
-        {
+            "properties": { "add-meta-yaml": { "minProperties": 1 } },
+            "required": ["add-meta-yaml"]
+          },
           "if": {
-            "properties": { "metadata": { "minProperties": 1 } },
-            "required": ["metadata"]
+            "properties": { "add-meta-mode": { "enum": ["xml"] } },
+            "required": ["add-meta-mode"]
           },
           "then": {
-            "not": {
-              "properties": { "metadata-file": { "minLength": 1 } },
-              "required": ["metadata-file"]
-            }
+            "properties": { "add-meta-xml-file": { "minLength": 1 } },
+            "required": ["add-meta-xml-file"]
           }
         }
       ]

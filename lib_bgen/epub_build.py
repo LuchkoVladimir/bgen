@@ -44,25 +44,29 @@ def _build_epub_metadata(
             warnings.append(f"обложка не найдена: {cover_path}")
             cover_path = None
 
-    # Дополнительный --metadata-file c yaml для epub
+    # Выбираем дополнительную metadata
     epub_cfg = config.get("epub") or {}
-    add_meta_yaml = dict(epub_cfg.get("metadata") or {})
-    epub_add_meta_path = None
-    if add_meta_yaml:
-        epub_add_meta_path = tmpdir / "epub-metadata-addon.yaml"
+    add_meta_mode = epub_cfg.get("add-meta-mode", "none")
 
-    if epub_add_meta_path:
-        with open(epub_add_meta_path, "w", encoding="utf-8") as f:
+    add_meta_yaml_path = None
+    add_meta_xml_path = None
+
+    if add_meta_mode == "xml":
+        add_meta_xml_path = paths[PATHS_EPUB_META_XML]
+    elif add_meta_mode == "yaml":
+        add_meta_yaml = dict(epub_cfg.get("add-meta-yaml"))
+        add_meta_yaml_path = tmpdir / "epub-metadata-addon.yaml"
+        with open(add_meta_yaml_path, "w", encoding="utf-8") as f:
             yaml.dump(add_meta_yaml, f, allow_unicode=True, default_flow_style=False)
 
-    return meta_path, paths[PATHS_EPUB_META_XML], epub_add_meta_path, cover_path
+    return meta_path, add_meta_xml_path, add_meta_yaml_path, cover_path
 
 
 def _run_pandoc_epub(
     md_files: list[Path],
     meta_path: Path,
-    epub_meta_addon_path: Path | None,
-    epub_meta_xml_path: Path | None,
+    add_meta_yaml_path: Path | None,
+    add_meta_xml_path: Path | None,
     output: Path,
     resource_path: Path,
     cover_path: Path | None,
@@ -92,10 +96,10 @@ def _run_pandoc_epub(
         cmd.extend(["--epub-cover-image", str(cover_path)])
     if css_path is not None and css_path.exists():
         cmd.extend(["--css", str(css_path)])
-    if epub_meta_addon_path is not None and epub_meta_addon_path.exists():
-        cmd.extend(["--metadata-file", str(epub_meta_addon_path)])
-    if epub_meta_xml_path is not None and epub_meta_xml_path.exists():
-        cmd.extend(["--epub-metadata", str(epub_meta_xml_path)])
+    if add_meta_yaml_path is not None:
+        cmd.extend(["--metadata-file", str(add_meta_yaml_path)])
+    if add_meta_xml_path is not None:
+        cmd.extend(["--epub-metadata", str(add_meta_xml_path)])
 
     cmd.extend(["-o", str(output)])
     cmd.extend(str(p) for p in md_files)
@@ -136,15 +140,15 @@ def _build_epub(
 
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
-        meta_path, epub_meta_xml_path, epub_meta_addon_path, cover_path = _build_epub_metadata(
+        meta_path, add_meta_xml_path, add_meta_yaml_path, cover_path = _build_epub_metadata(
                 project_path, config, paths, tmpdir, warnings,
         )
         if keep_metadata:
             shutil.copy(meta_path, output_dir / "epub_metadata.yaml")
-            if epub_meta_addon_path is not None:
-                shutil.copy(epub_meta_addon_path, output_dir / "epub_addon_metadata.yaml")
+            if add_meta_yaml_path is not None:
+                shutil.copy(add_meta_yaml_path, output_dir / "epub_addon_metadata.yaml")
         _run_pandoc_epub(
-            md_files, meta_path, epub_meta_addon_path, epub_meta_xml_path, output_path, project_path,
+            md_files, meta_path, add_meta_yaml_path, add_meta_xml_path, output_path, project_path,
             cover_path, paths[PATHS_EPUB_CSS], config, toc, env, warnings,
         )
 
