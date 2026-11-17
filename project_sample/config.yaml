@@ -63,7 +63,7 @@ fb2:
   # Сжимать ли итоговый FB2 в book.fb2.zip (рядом с book.fb2).
   zip: true
 
-  # Режим работы с <description>:
+  # Режим работы с <description-mode>:
   #   auto     — bgen генерирует description из config.yaml/body/ и упорядочивает.
   #   template — fb2_description.xml задаёт структуру и значения по умолчанию; bgen заполняет
   #              СУЩЕСТВУЮЩИЕ элементы шаблона значениями из config.yaml/body/.
@@ -73,10 +73,10 @@ fb2:
   #              (author, book-title, genre, date, annotation, coverpage, lang)
   #              игнорируются. config.yaml всё равно должен содержать
   #              title/author для Pandoc, иначе сборка упадёт.
-  description: auto
+  description-mode: auto
 
   # Путь к fb2_description.xml (относительно проекта или абсолютный).
-  # Обязателен, если description = template или override.
+  # Обязателен, если description-mode = template или override.
   # Если файл не найден — сборка прерывается (BgenError).
   # Fallback на bgen/ НЕ используется (описание книги — своё для каждого проекта).
   description-file: ""

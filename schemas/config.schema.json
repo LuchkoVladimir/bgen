@@ -38,7 +38,7 @@
         "print":            { "type": "string",   "defualt": "pretty",
           "enum": ["pretty", "toleft", "src"]                           },
         "zip":              { "type": "boolean",  "defualt": false      },
-        "description":      { "type": "string",   "defualt": "auto",
+        "description-mode": { "type": "string",   "defualt": "auto",
           "enum": ["auto", "template", "override"]                      },
         "description-file": { "type": "string",   "defualt": ""         },
         "genres":           { "type": "array",    "defualt": [],
@@ -158,8 +158,8 @@
         "version":                          {"type": "string",  "default": ""}
       },
       "if": {
-        "properties": { "description": { "enum": ["template", "override"] } },
-        "required": ["description"]
+        "properties": { "description-mode": { "enum": ["template", "override"] } },
+        "required": ["description-mode"]
       },
       "then": {
         "required": ["description-file"],

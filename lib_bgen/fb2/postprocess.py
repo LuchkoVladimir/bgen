@@ -155,7 +155,7 @@ def _apply_custom_description(
     override — заменяет <description> целиком на содержимое файла.
     """
     fb2_cfg = config.get("fb2") or {}
-    mode = fb2_cfg.get("description", "auto")
+    mode = fb2_cfg.get("description-mode", "auto")
     if mode == "auto":
         return
 
@@ -184,7 +184,7 @@ def _apply_custom_description(
         else:
             root.insert(0, custom_root)
         warnings.append(
-            "fb2.description=override: значения config.yaml для description "
+            "fb2.description-mode=override: значения config.yaml для description "
             "(author, book-title, genre, date, annotation, coverpage, lang) "
             "игнорируются"
         )
