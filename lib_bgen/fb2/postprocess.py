@@ -598,7 +598,7 @@ def _postprocess_fb2(
 
     # Печать финального fb2 в файл 
     fb2_cfg = config.get("fb2") or {}
-    print_mode = fb2_cfg.get("print", "pretty")
+    print_mode = fb2_cfg.get("print-mode", "pretty")
 
     _write_fb2(tree, print_mode, fb2_path, warnings)
 

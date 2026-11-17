@@ -58,7 +58,7 @@ fb2:
   #   pretty  — indent 2, --wrap auto (читаемо; дефолт).
   #   toleft  — indent "", --wrap auto (без пробелов, но с \n).
   #   src     — indent "", --wrap preserve (как в исходнике).
-  print: pretty
+  print-mode: pretty
 
   # Сжимать ли итоговый FB2 в book.fb2.zip (рядом с book.fb2).
   zip: true

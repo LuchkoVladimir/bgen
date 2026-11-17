@@ -107,7 +107,7 @@ def _build_fb2(
     keep_metadata = config.get("keep-metadata", False)
 
     # print mode: pretty/toleft/src → wrap
-    print_mode = fb2_cfg.get("print", "pretty")
+    print_mode = fb2_cfg.get("print-mode", "pretty")
     wrap_map = {
         "pretty": "auto",
         "toleft": "auto",

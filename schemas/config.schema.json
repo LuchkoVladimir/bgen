@@ -35,7 +35,7 @@
       "additionalProperties": false,
       "properties": {
         "enabled":          { "type": "boolean",  "defualt": false      },
-        "print":            { "type": "string",   "defualt": "pretty",
+        "print-mode":       { "type": "string",   "defualt": "pretty",
           "enum": ["pretty", "toleft", "src"]                           },
         "zip":              { "type": "boolean",  "defualt": false      },
         "description-mode": { "type": "string",   "defualt": "auto",
