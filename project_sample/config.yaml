@@ -86,9 +86,10 @@ fb2:
   ##########################
 
   # Жанры FB2 (коды). Если не заданы — будет "unrecognised".
+  # name  - обязательный параметр
+  # match - опциональный
   genres:
-    - sf
-    - sf_fantasy
+    - name: sf
     - name: detective
       match: 20
 

@@ -42,25 +42,22 @@
           "enum": ["auto", "template", "override"]                      },
         "description-file": { "type": "string",   "defualt": ""         },
         "genres":           { "type": "array",    "defualt": [],
-          "items": {
-            "oneOf": [      { "type": "string", "minLength": 1 },
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["name"],
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "match": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 100
-                  }
-                }
+          "items":
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "match": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
               }
-            ]
+            }
           }
         },
         "title-author": {

@@ -365,27 +365,13 @@ def _update_metadata_genres(fb2_cfg: dict, title_info: ET.Element) -> None:
 
     for g in title_info.findall("fb:genre", ns):
         title_info.remove(g)
-    for g in fb2_cfg.get("genres") or ["unrecognised"]:
-        if isinstance(g, dict):
-            name = g.get("name")
-            if not isinstance(name, str) or not name:
-                raise BgenError(
-                    f"fb2.genres: 'name' должен быть непустой строкой, получено {name!r}"
-                )
-            match = g.get("match")
-            if match is not None:
-                if not (type(match) is int) or not (1 <= match <= 100):
-                    raise BgenError(
-                        f"fb2.genres: 'match' должен быть целым числом 1..100, получено {match!r}"
-                    )
-            genre_el = ET.SubElement(title_info, f"{{{FB2_NS}}}genre")
-            genre_el.text = name
-            if match is not None:
-                genre_el.set("match", str(match))
-        elif isinstance(g, str):
-            ET.SubElement(title_info, f"{{{FB2_NS}}}genre").text = g
-        else:
-            raise BgenError(f"fb2.genres: ожидается строка или словарь, получено {type(g).__name__}")
+    for g in fb2_cfg.get("genres") or [{"name":"unrecognised"}]:
+        name = g.get("name")
+        match = g.get("match")
+        genre_el = ET.SubElement(title_info, f"{{{FB2_NS}}}genre")
+        genre_el.text = name
+        if match is not None: #config-default: match необязателен, в конфигу дефлт подставляться не будет.
+            genre_el.set("match", str(match))
 
 
 def _update_metadata_authors(fb2_cfg: dict, title_info: ET.Element, doc_info: ET.Element) -> None:
