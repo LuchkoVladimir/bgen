@@ -41,7 +41,7 @@ def build(
 
     formats = _resolve_formats(config, only)
 
-    output_dir = project_path / config.get("output_dir", "output")
+    output_dir = project_path / config.get("output-dir", "output")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     env = os.environ.copy()
