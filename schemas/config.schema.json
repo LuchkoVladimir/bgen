@@ -40,7 +40,7 @@
         "zip":              { "type": "boolean",  "defualt": false      },
         "description":      { "type": "string",   "defualt": "auto",
           "enum": ["auto", "template", "override"]                      },
-        "description_file": { "type": "string",   "defualt": ""         },
+        "description-file": { "type": "string",   "defualt": ""         },
         "genres":           { "type": "array",    "defualt": [],
           "items": {
             "oneOf": [      { "type": "string", "minLength": 1 },
@@ -164,8 +164,8 @@
             "required": ["description"]
           },
           "then": {
-            "required": ["description_file"],
-            "properties": { "description_file": { "minLength": 1 } }
+            "required": ["description-file"],
+            "properties": { "description-file": { "minLength": 1 } }
           }
         },
         {
@@ -174,7 +174,7 @@
             "required": ["description"]
           },
           "then": {
-            "properties": { "description_file": { "maxLength": 0 } }
+            "properties": { "description-file": { "maxLength": 0 } }
           }
         },
         {
@@ -182,7 +182,7 @@
             "not": { "required": ["description"] }
           },
           "then": {
-            "properties": { "description_file": { "maxLength": 0 } }
+            "properties": { "description-file": { "maxLength": 0 } }
           }
         }
       ]

@@ -143,8 +143,8 @@ def _resolve_file_paths(project_path: Path, config: dict) -> dict[str, Path | No
     typo = config.get("typography", "")
     paths[PATHS_TYPOG] = (project_path / typo).resolve() if typo else TYPOGRAPHY_FILE
 
-    # fb2_description: только если задан description_file
-    desc_rel = fb2_cfg.get("description_file", "")
+    # fb2_description: только если задан description-file
+    desc_rel = fb2_cfg.get("description-file", "")
     paths[PATHS_FB2_DESC] = (project_path / desc_rel).resolve() if desc_rel else None
 
     # reference_doc: config → bgen/schemas/reference.docx

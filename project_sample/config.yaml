@@ -79,7 +79,7 @@ fb2:
   # Обязателен, если description = template или override.
   # Если файл не найден — сборка прерывается (BgenError).
   # Fallback на bgen/ НЕ используется (описание книги — своё для каждого проекта).
-  description_file: ""
+  description-file: ""
 
   ##########################
   # description/title-info #
