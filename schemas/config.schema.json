@@ -2,89 +2,48 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "bgen config.yaml",
   "type": "object",
+  "default": {},
   "additionalProperties": false,
   "required": ["metadata"],
   "properties": {
-    "output_dir": {
-      "type": "string"
-    },
-    "typography": {
-      "type": "string"
-    },
-    "trace": {
-      "type": "boolean"
-    },
-    "verbose": {
-      "type": "boolean"
-    },
-    "keep_metadata": {
-      "type": "boolean"
-    },
+    "output_dir":     { "type": "string", "default": "output" },
+    "typography":     { "type": "string", "default": "" },
+    "trace":          { "type": "boolean", "default": false },
+    "verbose":        { "type": "boolean", "default": false },
+    "keep_metadata":  { "type": "boolean", "default": false },
     "metadata": {
       "type": "object",
+      "default": {},
       "additionalProperties": true,
       "required": ["title", "author"],
       "properties": {
-        "title": {
-          "type": "string",
-          "minLength": 1
-        },
+        "title":        { "type": "string", "minLength": 1 },
+        "lang":         { "type": "string", "default": "ru" },
+        "cover-image":  { "type": "string", "default": "" },
         "author": {
-          "oneOf": [
-            {
-              "type": "string",
-              "minLength": 1
-            },
-            {
-              "type": "array",
-              "minItems": 1,
-              "items": {
-                "type": "string",
-                "minLength": 1
-              }
-            }
+          "oneOf": [    { "type": "string", "minLength": 1 },
+              { "type": "array",  "minItems": 1,
+               "items": { "type": "string", "minLength": 1 } }
           ]
-        },
-        "lang": {
-          "type": "string"
-        },
-        "cover-image": {
-          "type": "string"
         }
       }
     },
     "fb2": {
       "type": "object",
+      "default": {},
       "additionalProperties": false,
       "properties": {
-        "enabled": {
-          "type": "boolean"
-        },
-        "output_name": {
-          "type": "string"
-        },
-        "print": {
-          "type": "string",
-          "enum": ["pretty", "toleft", "src"]
-        },
-        "zip": {
-          "type": "boolean"
-        },
-        "description": {
-          "type": "string",
-          "enum": ["auto", "template", "override"]
-        },
-        "description_file": {
-          "type": "string"
-        },
-        "genres": {
-          "type": "array",
+        "enabled":          { "type": "boolean",  "defualt": false      },
+        "output_name":      { "type": "string",   "defualt": "book.fb2" },
+        "print":            { "type": "string",   "defualt": "pretty",
+          "enum": ["pretty", "toleft", "src"]                           },
+        "zip":              { "type": "boolean",  "defualt": false      },
+        "description":      { "type": "string",   "defualt": "auto",
+          "enum": ["auto", "template", "override"]                      },
+        "description_file": { "type": "string",   "defualt": ""         },
+        "genres":           { "type": "array",    "defualt": [],
           "items": {
-            "oneOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
+            "oneOf": [      { "type": "string", "minLength": 1 },
               {
                 "type": "object",
                 "additionalProperties": false,
@@ -106,6 +65,7 @@
         },
         "title-author": {
           "type": "array",
+          "default": [],
           "items": {
             "oneOf": [
               { "type": "string", "minLength": 1 },
@@ -165,6 +125,7 @@
         },
         "sequence": {
           "type": "array",
+          "default": [],
           "items": {
             "oneOf": [
               {
@@ -191,18 +152,10 @@
             ]
           }
         },
-        "doc-author-copy-first-from-title": {
-          "type": "boolean"
-        },
-        "date": {
-          "type": "string"
-        },
-        "id": {
-          "type": "string"
-        },
-        "version": {
-          "type": "string"
-        }
+        "doc-author-copy-first-from-title": {"type": "boolean", "default": false},
+        "date":                             {"type": "string",  "default": ""},
+        "id":                               {"type": "string",  "default": ""},
+        "version":                          {"type": "string",  "default": ""}
       },
       "allOf": [
         {
@@ -236,29 +189,16 @@
     },
     "epub": {
       "type": "object",
+      "default": {},
       "additionalProperties": false,
       "properties": {
-        "enabled": {
-          "type": "boolean"
-        },
-        "output_name": {
-          "type": "string"
-        },
-        "css": {
-          "type": "string"
-        },
-        "toc": {
-          "type": "boolean"
-        },
-        "metadata-file": {
-          "type": "string"
-        },
-        "metadata": {
-          "type": "object",
-          "additionalProperties": true
-        }
+        "enabled":        { "type": "boolean",                                      "default": false },
+        "output_name":    { "type": "string",                                       "default": "book.epub" },
+        "css":            { "type": "string",                                       "default": "" },
+        "toc":            { "type": "boolean",                                      "default": false },
+        "metadata-file":  { "type": "string",                                       "default": "" },
+        "metadata":       { "type": "object", "additionalProperties": true,         "default": {}}
       },
-
       "allOf": [
         {
           "if": {
@@ -288,43 +228,25 @@
     },
     "docx": {
       "type": "object",
+      "default": {},
       "additionalProperties": false,
       "properties": {
-        "enabled": {
-          "type": "boolean"
-        },
-        "output_name": {
-          "type": "string"
-        },
-        "reference_doc": {
-          "type": "string"
-        },
-        "toc": {
-          "type": "boolean"
-        }
+        "enabled":        { "type": "boolean",                                      "default": false },
+        "output_name":    { "type": "string",                                       "default": "book.docx" },
+        "reference_doc":  { "type": "string",                                       "default": "" },
+        "toc":            { "type": "boolean",                                      "default": false }
       }
     },
     "txt": {
       "type": "object",
+      "default": {},
       "additionalProperties": false,
       "properties": {
-        "enabled": {
-          "type": "boolean"
-        },
-        "output_name": {
-          "type": "string"
-        },
-        "columns": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "wrap": {
-          "type": "string",
-          "enum": ["auto", "none", "preserve"]
-        },
-        "card": {
-          "type": "boolean"
-        }
+        "enabled":      { "type": "boolean",                                        "default": false },
+        "output_name":  { "type": "string",                                         "default": "book.txt" },
+        "columns":      { "type": "integer", "minimum": 1,                          "default": 80 },
+        "wrap":         { "type": "string", "enum": ["auto", "none", "preserve"],   "default": "auto" },
+        "card":         { "type": "boolean",                                        "default": false }
       }
     }
   }
