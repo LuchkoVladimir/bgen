@@ -140,7 +140,7 @@ def _resolve_file_paths(project_path: Path, config: dict) -> dict[str, Path | No
     paths: dict[str, Path | None] = {}
 
     # typography: config → bgen/schemas/typography.txt
-    typo = config.get("typography", "")
+    typo = config.get("typography-file", "")
     paths[PATHS_TYPOG] = (project_path / typo).resolve() if typo else TYPOGRAPHY_FILE
 
     # fb2_description: только если задан description-file
