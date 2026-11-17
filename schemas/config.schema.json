@@ -22,10 +22,9 @@
         "lang":         { "type": "string", "default": "ru" },
         "cover-image":  { "type": "string", "default": "" },
         "author": {
-          "oneOf": [    { "type": "string", "minLength": 1 },
-              { "type": "array",  "minItems": 1,
-               "items": { "type": "string", "minLength": 1 } }
-          ]
+          "type": "array",
+          "minItems": 1,
+          "items":      { "type": "string", "minLength": 1 }
         }
       }
     },
@@ -64,32 +63,21 @@
           "type": "array",
           "default": [],
           "items": {
-            "oneOf": [
-              { "type": "string", "minLength": 1 },
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "first-name": { "type": "string", "minLength": 1 },
-                  "middle-name": { "type": "string", "minLength": 1 },
-                  "last-name": { "type": "string", "minLength": 1 },
-                  "nickname": { "type": "string", "minLength": 1 },
-                  "home-page": {
-                    "oneOf": [
-                      { "type": "string", "minLength": 1 },
-                      { "type": "array", "items": { "type": "string", "minLength": 1 } }
-                    ]
-                  },
-                  "email": {
-                    "oneOf": [
-                      { "type": "string", "minLength": 1 },
-                      { "type": "array", "items": { "type": "string", "minLength": 1 } }
-                    ]
-                  },
-                  "id": { "type": "string", "minLength": 1 }
-                }
-              }
-            ]
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "first-name": { "type": "string", "minLength": 1 },
+              "middle-name": { "type": "string", "minLength": 1 },
+              "last-name": { "type": "string", "minLength": 1 },
+              "nickname": { "type": "string", "minLength": 1 },
+              "home-page": {
+                "type": "array", "items": { "type": "string", "minLength": 1 }
+              },
+              "email": {
+                "type": "array", "items": { "type": "string", "minLength": 1 }
+              },
+              "id": { "type": "string", "minLength": 1 }
+            }
           }
         },
         "keywords": {

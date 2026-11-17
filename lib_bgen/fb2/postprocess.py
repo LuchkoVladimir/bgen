@@ -39,10 +39,7 @@ def _make_book_id(config: dict) -> str:
     meta = config.get("metadata") or {}
     title = meta.get("title", "")
     authors = meta.get("author") or []
-    if isinstance(authors, list):
-        author_str = "|".join(str(a) for a in authors)
-    else:
-        author_str = str(authors)
+    author_str = "|".join(str(a) for a in authors)
     lang = meta.get("lang", "ru")
     key = f"{title}|{author_str}|{lang}"
     return str(uuid.uuid5(uuid.NAMESPACE_URL, key))
@@ -392,9 +389,7 @@ def _update_metadata_authors(fb2_cfg: dict, title_info: ET.Element, doc_info: ET
 
     # Нормализуем: убираем пустые строки и невалидные словари
     title_authors = [
-        a for a in title_authors
-        if (isinstance(a, str) and a.strip())
-        or (isinstance(a, dict) and _is_valid_author_dict(a))
+        a for a in title_authors if _is_valid_author_dict(a)
     ]
     if title_authors:
         # Удаляем сгенерированных Pandoc'ом авторов
@@ -402,41 +397,21 @@ def _update_metadata_authors(fb2_cfg: dict, title_info: ET.Element, doc_info: ET
             title_info.remove(old)
 
         for author in title_authors:
-            if isinstance(author, str):
-                words = author.split()
-                author_el = ET.SubElement(title_info, f"{{{FB2_NS}}}author")
-                if len(words) == 1:
-                    ET.SubElement(author_el, f"{{{FB2_NS}}}nickname").text = words[0]
-                elif len(words) == 2:
-                    ET.SubElement(author_el, f"{{{FB2_NS}}}first-name").text = words[0]
-                    ET.SubElement(author_el, f"{{{FB2_NS}}}last-name").text = words[1]
-                else:
-                    ET.SubElement(author_el, f"{{{FB2_NS}}}first-name").text = words[0]
-                    ET.SubElement(author_el, f"{{{FB2_NS}}}middle-name").text = " ".join(words[1:-1])
-                    ET.SubElement(author_el, f"{{{FB2_NS}}}last-name").text = words[-1]
-            elif isinstance(author, dict):
-                author_el = ET.SubElement(title_info, f"{{{FB2_NS}}}author")
-                # Одиночные поля --- Имя, отчество, фамилия, никнейм (в этом порядке)
-                for field in ("first-name", "middle-name", "last-name", "nickname"):
-                    val = author.get(field)
-                    if val:
-                        ET.SubElement(author_el, f"{{{FB2_NS}}}{field}").text = str(val)
-                # Множественные поля --- home-page, email (порядок!)
-                for field in ("home-page", "email"):
-                    values = author.get(field) or []
-                    if isinstance(values, str):
-                        values = [values]
-                    for v in values:
-                        if v:
-                            ET.SubElement(author_el, f"{{{FB2_NS}}}{field}").text = str(v)
-                # id - идёт последним
-                if author.get("id"):
-                    ET.SubElement(author_el, f"{{{FB2_NS}}}id").text = str(author["id"])
-            else:
-                raise BgenError(
-                    f"fb2.title-author: ожидается строка или словарь, "
-                    f"получено {type(author).__name__}"
-                )
+            author_el = ET.SubElement(title_info, f"{{{FB2_NS}}}author")
+            # Одиночные поля --- Имя, отчество, фамилия, никнейм (в этом порядке)
+            for field in ("first-name", "middle-name", "last-name", "nickname"):
+                val = author.get(field)
+                if val:
+                    ET.SubElement(author_el, f"{{{FB2_NS}}}{field}").text = str(val)
+            # Множественные поля --- home-page, email (порядок!)
+            for field in ("home-page", "email"):
+                values = author.get(field) or []
+                for v in values:
+                    if v:
+                        ET.SubElement(author_el, f"{{{FB2_NS}}}{field}").text = str(v)
+            # id - идёт последним
+            if author.get("id"):
+                ET.SubElement(author_el, f"{{{FB2_NS}}}id").text = str(author["id"])
 
     copy_author = fb2_cfg.get("doc-author-copy-first-from-title", False)
     if copy_author:
