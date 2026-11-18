@@ -2,24 +2,102 @@
 
 ## Высокий приоритет
 
-# bug? Стираем жанры из metadata даже если не пишем вместо них ничего. Или сделать fb2.genres обязательным или не стирать
-# upd? title-date не хватает lang
+### upd? title-date не хватает lang
 
-### info вместо stat
-**Что:** команда для вывода общей информации о проекте.
-- author + title
-- существующий stat
-- структура по md в body - заголовки всех уровней и размеры глав.
-- чек конфиги на валидность.
-- чек на наличие файлов, указанных в конфиге и на наличие ресурсов (картинок), указанных в md.
-- вывод самой конфиги (если конфига будет достраиваться - полезно видеть, что получили)
-- чек на типографию - поиск ", шаблонов " - " и прочих без нужных пробелов и т. д.
-**Зачем:** чтобы при взгляде сразу можно было понять что это и о чём.
-**Сложность:** средняя.
+### Пройтись по fb2
+- нужно чтобы была возможность задать всё допустимое из поддержаных сейчас параметров (lang и т.д.)
+    - что не поддержано - это через xml
+- title-info / book-title : lang                                            book-title-lang
+- title-info / annotation : lang                                            annotation-lang
+- document-info / author (только один скопирован)                           copy-first / настройка как title-author
+    + doc-author
+- document-info / program-used :                                            lang -- генерировать вместе с text?
+- document-info / date : генерится value=text, нет lang                     defs/refs в schema? и func в python?
+    date -> doc-date
+
+### Полировка readme.md и примера md
+- перед выкладкой на github
+
 
 ## Средний приоритет
 
-### Полировка readme.md и примера md
+### stat
+- author + title
+- существующий stat
+- структура по md в body - заголовки всех уровней и размеры глав.
+
+<authors>
+<title>
+
+totals:
+chars:
+words:
+files:
+
+annotation: chars-words
+epigraph: chars-words
+
+chars-words section 1     
+chars-words subsection 1.1
+chars-words subsection 1.2
+chars-words section 2     
+chars-words subsection 2.1
+chars-words subsection 2.2
+
+### check
+- чек конфиги на валидность (тут же и резолвинг указанных файлов)
+- чек на наличие ресурсов (картинок), указанных в md.
+
+<authors>
+<title>
+
+images:
+cover:     found : path0
+           found : path1
+           found : path2
+       not found : path3
+...
+
+build files:
+fb2-xml:    off   :
+epub-css:   bgen  : <path>
+epub-xml:   off   :
+docx-ref:   found : <path>
+typography: bgen  : <path>
+
+body order:
+file1
+file2
+file3
+...
+
+### cfg
+- вывод конфиги
+
+<authors>
+<title>
+
+config:
+...
+
+### typo
+- чек на типографию - поиск ", шаблонов " - " и прочих без нужных пробелов и т. д.
+- описать правила в readme
+
+<authors>
+<title>
+
+<RULE XX: pattern in human style 1>:
+- ent1
+- ent2
+- ent3
+...
+<RULE YY: pattern in human style 2>:
+- ent1
+- ent2
+- ent3
+...
+<...>
 
 ### Тесты (pytest)
 **Что:** тесты на `_make_book_id`, `_apply_custom_description`,
@@ -27,6 +105,7 @@
 (через вызов Pandoc на минимальном проекте).
 **Зачем:** без тестов изменения в постобработке могут сломать FB2 незаметно.
 **Сложность:** средняя.
+
 
 ## Низкий приоритет (отложено)
 
