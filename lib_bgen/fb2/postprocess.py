@@ -62,7 +62,7 @@ def _sort_children_by_order(parent: ET.Element, order: list[str]) -> None:
         parent.append(child)
 
 
-def _update_book_elements_from_body(body: ET.Element, title_info: ET.Element) -> None:
+def _update_book_elements_from_body(body: ET.Element, title_info: ET.Element, config: dict) -> None:
     """За один проход по <body>: переносит <annotation>, <image> и <epigraph>
     из безымянных секций в <title-info> и <body> соответственно.
 
@@ -120,7 +120,9 @@ def _update_book_elements_from_body(body: ET.Element, title_info: ET.Element) ->
     if book_annotations:
         for old in title_info.findall("fb:annotation", ns):
             title_info.remove(old)
-        ann = ET.SubElement(title_info, f"{{{FB2_NS}}}annotation")
+        lang = config.get("fb2").get("annotation-lang")
+        attrs = {f"{{{XML_NS}}}lang": str(lang)} if lang else {}
+        ann = ET.SubElement(title_info, f"{{{FB2_NS}}}annotation", attrs)
         for annotation_el in book_annotations:
             for child in list(annotation_el):
                 ann.append(child)
@@ -468,6 +470,12 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
     # document-info/author --- копируем первого из title, если указано в настройках
     _update_metadata_authors(fb2_cfg, title_info, doc_info)
 
+    # title-info/book-title --- выставляется pandoc из metadata. Но может потребоваться выставление lang
+    title_lang = fb2_cfg.get("book-title-lang")
+    if title_lang:
+        el = title_info.find("fb:book-title", ns)
+        el.set(f"{{{XML_NS}}}lang", str(title_lang))
+
     # title-info/keywords --- опциональны, удобны для позиционирования наряду с жанрами, список строк через запятую
     keywords = fb2_cfg.get("keywords")
     if keywords:
@@ -537,7 +545,7 @@ def _postprocess_fb2(
 
     # В bgen мы пишем аннотацию, фронтиспис и эпиграф перед первой секцией, чтобы pandoc обработал md. Теперь нужно
     # достать из созданной pandoc`ом для них секции и разместить где нужно
-    _update_book_elements_from_body(body, title_info)
+    _update_book_elements_from_body(body, title_info, config)
 
     # Заполняем метадату по конфиге
     _update_metadata(config, title_info, doc_info)

@@ -116,6 +116,11 @@ fb2:
 
   # book-title    1   (str) -- [pandoc] из metadata:title
   # annotation    0-1 (md)  -- [bgen-post] вставляется из md
+  # Эти элементы могут содержать lang. И им стоит его содержать,
+  # если lang отличается от общего title-info/lang.
+  # Если пусто - не выставлять.
+  book-title-lang: ""
+  annotation-lang: ""
 
   # Ключевые слова для поиска (FB2 title-info/keywords).
   # Список строк; при записи склеиваются через запятую.
