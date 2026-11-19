@@ -59,33 +59,7 @@
             }
           }
         },
-        "title-author": {
-          "type": "array",
-          "default": [],
-          "items": {
-            "type": "object",
-            "anyOf": [
-              { "required": ["nickname"] },
-              { "required": ["first-name", "last-name"] }
-            ],
-            "additionalProperties": false,
-            "properties": {
-              "first-name":   { "type": "string", "minLength": 1 },
-              "middle-name":  { "type": "string", "minLength": 1 },
-              "last-name":    { "type": "string", "minLength": 1 },
-              "nickname":     { "type": "string", "minLength": 1 },
-              "home-page": {
-                "type": "array", "items": { "type": "string", "minLength": 1 },
-                  "default": []
-              },
-              "email": {
-                "type": "array", "items": { "type": "string", "minLength": 1 },
-                  "default": []
-              },
-              "id":           { "type": "string", "minLength": 1 }
-            }
-          }
-        },
+        "title-author":       {"$ref": "#/$defs/authorType", "default": [] },
         "book-title-lang":    { "type": "string", "default": "" },
         "annotation-lang":    { "type": "string", "default": "" },
         "keywords": {
@@ -97,7 +71,6 @@
           }
         },
         "title-date":         {"$ref": "#/$defs/dateType", "default": {} },
-        "doc-date":           {"$ref": "#/$defs/dateType", "default": {} },
         "sequence": {
           "type": "array",
           "default": [],
@@ -121,9 +94,11 @@
             }
           }
         },
-        "doc-author-copy-first-from-title": {"type": "boolean", "default": false},
-        "id":                               {"type": "string",  "default": ""},
-        "version":                          {"type": "string",  "default": ""}
+        "doc-author-copy-first-from-title": {"type": "boolean",             "default": false},
+        "doc-author":                       {"$ref": "#/$defs/authorType",  "default": [] },
+        "doc-date":                         {"$ref": "#/$defs/dateType",    "default": {} },
+        "id":                               {"type": "string",              "default": ""},
+        "version":                          {"type": "string",              "default": ""}
       },
       "if": {
         "properties": { "description-mode": { "enum": ["template", "override"] } },
@@ -210,6 +185,32 @@
         "lang": {
           "type": "string",
           "default": ""
+        }
+      }
+    },
+    "authorType": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "anyOf": [
+          { "required": ["nickname"] },
+          { "required": ["first-name", "last-name"] }
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "first-name":   { "type": "string", "minLength": 1 },
+          "middle-name":  { "type": "string", "minLength": 1 },
+          "last-name":    { "type": "string", "minLength": 1 },
+          "nickname":     { "type": "string", "minLength": 1 },
+          "home-page": {
+            "type": "array", "items": { "type": "string", "minLength": 1 },
+              "default": []
+          },
+          "email": {
+            "type": "array", "items": { "type": "string", "minLength": 1 },
+              "default": []
+          },
+          "id":           { "type": "string", "minLength": 1 }
         }
       }
     }

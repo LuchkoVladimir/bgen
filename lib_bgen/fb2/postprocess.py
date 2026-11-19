@@ -376,10 +376,8 @@ def _update_metadata_genres(fb2_cfg: dict, title_info: ET.Element) -> None:
             genre_el.set("match", str(match))
 
 
-def _update_metadata_authors(fb2_cfg: dict, title_info: ET.Element, doc_info: ET.Element) -> None:
-    """Обновляет title-info/author (если задано в config.yaml) и, при
-    doc-author-copy-first-from-title, копирует первого автора в document-info.
-    """
+def _update_title_or_doc_author(fb2_cfg: dict, some_author: str, some_info: ET.Element) -> None:
+    """Обновляет {title/doc}-info/author (если задано в config.yaml)"""
 
     def _is_valid_author_dict(a: dict) -> bool:
         """Проверяет, что словарь автора соответствует одному из вариантов FB2:
@@ -390,19 +388,19 @@ def _update_metadata_authors(fb2_cfg: dict, title_info: ET.Element, doc_info: ET
         return bool(a.get("first-name") and a.get("last-name"))
 
     ns = {"fb": FB2_NS}
-    title_authors = fb2_cfg.get("title-author")
+    some_authors = fb2_cfg.get(some_author)
 
     # Нормализуем: убираем пустые строки и невалидные словари
-    title_authors = [
-        a for a in title_authors if _is_valid_author_dict(a)
+    some_authors = [
+        a for a in some_authors if _is_valid_author_dict(a)
     ]
-    if title_authors:
+    if some_authors:
         # Удаляем сгенерированных Pandoc'ом авторов
-        for old in title_info.findall("fb:author", ns):
-            title_info.remove(old)
+        for old in some_info.findall("fb:author", ns):
+            some_info.remove(old)
 
-        for author in title_authors:
-            author_el = ET.SubElement(title_info, f"{{{FB2_NS}}}author")
+        for author in some_authors:
+            author_el = ET.SubElement(some_info, f"{{{FB2_NS}}}author")
             # Одиночные поля --- Имя, отчество, фамилия, никнейм (в этом порядке)
             for field in ("first-name", "middle-name", "last-name", "nickname"):
                 val = author.get(field)
@@ -418,11 +416,20 @@ def _update_metadata_authors(fb2_cfg: dict, title_info: ET.Element, doc_info: ET
             if author.get("id"):
                 ET.SubElement(author_el, f"{{{FB2_NS}}}id").text = str(author["id"])
 
-    copy_author = fb2_cfg.get("doc-author-copy-first-from-title")
-    if copy_author:
+
+def _update_metadata_authors(fb2_cfg: dict, title_info: ET.Element, doc_info: ET.Element) -> None:
+    """Обновляет {title/doc}-info/ author, при doc-author-copy-first-from-title,
+    копирует первого автора в document-info.
+    """
+    ns = {"fb": FB2_NS}
+    _update_title_or_doc_author(fb2_cfg, "title-author", title_info)
+
+    if fb2_cfg.get("doc-author-copy-first-from-title"):
         first_title_author = title_info.find("fb:author", ns)
         if first_title_author is not None:
             doc_info.append(copy.deepcopy(first_title_author))
+    else:
+        _update_title_or_doc_author(fb2_cfg, "doc-author", doc_info)
 
 
 def _update_metadata_title_or_doc_date(elem: str, fb2_cfg: dict, some_info: ET.Element) -> None:
