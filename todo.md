@@ -9,7 +9,6 @@
 - title-info / annotation : lang                                            annotation-lang
 - document-info / author (только один скопирован)                           copy-first / настройка как title-author
     + doc-author
-- document-info / program-used :                                            lang -- генерировать вместе с text?
 - document-info / date : генерится value=text, нет lang                     defs/refs в schema? и func в python?
     date -> doc-date
 

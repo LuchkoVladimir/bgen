@@ -484,8 +484,9 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
 
     # document-info/program-used --- pandoc генерирует свой, но мы пишем себя, так как включаем постобработку
     program_el = doc_info.find("fb:program-used", ns)
-    if program_el is None:
-        program_el = ET.SubElement(doc_info, f"{{{FB2_NS}}}program-used")
+    if program_el is not None:
+        doc_info.remove(program_el)
+    program_el = ET.SubElement(doc_info, f"{{{FB2_NS}}}program-used", {f"{{{XML_NS}}}lang": "en"})
     program_el.text = PROGRAM_USED
 
     # document-info/id --- обязателен
