@@ -425,25 +425,31 @@ def _update_metadata_authors(fb2_cfg: dict, title_info: ET.Element, doc_info: ET
             doc_info.append(copy.deepcopy(first_title_author))
 
 
-def _update_metadata_title_date(fb2_cfg: dict, title_info: ET.Element) -> None:
-    """Добавляет title-info/date из fb2.title-date ({value, text})."""
-    title_date = fb2_cfg.get("title-date")
-    if not title_date:
+def _update_metadata_title_or_doc_date(elem: str, fb2_cfg: dict, some_info: ET.Element) -> None:
+    """Добавляет {title/document}-info/ date из fb2.{title/doc}-date ({value, text, lang}."""
+    ns = {"fb": FB2_NS}
+
+    some_date = fb2_cfg.get(elem)
+    if not some_date:
         return
 
-    value = title_date.get("value")
-    text = title_date.get("text")
-    lang = title_date.get("lang")
+    value = some_date.get("value")
+    text = some_date.get("text")
+    lang = some_date.get("lang")
 
     if not value and not text and not lang:
         return
 
-    attrs = {"value": str(value)} if value else {}
-    if lang:
-        attrs[f"{{{XML_NS}}}lang"] = lang
+    for old in some_info.findall("fb:date", ns):
+        some_info.remove(old)
+    el = ET.SubElement(some_info, f"{{{FB2_NS}}}date")
 
-    date_el = ET.SubElement(title_info, f"{{{FB2_NS}}}date", attrs)
-    date_el.text = str(text) if text else (str(value) if value else None)
+    if value:
+        el.set("value", str(value))
+    if lang:
+        el.set(f"{{{XML_NS}}}lang", str(lang))
+    if text:
+        el.text = str(text)
 
 
 def _update_metadata_sequence(fb2_cfg: dict, title_info: ET.Element) -> None:
@@ -485,7 +491,7 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
         kw_el.text = ", ".join(str(k) for k in keywords)
 
     # title-info/date --- опциональна, но отображается в читалках, так что лучше заполнить
-    _update_metadata_title_date(fb2_cfg, title_info)
+    _update_metadata_title_or_doc_date("title-date", fb2_cfg, title_info)
 
     # title-info/sequence --- может быть несколько
     _update_metadata_sequence(fb2_cfg, title_info)
@@ -514,11 +520,8 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
         version_el = ET.SubElement(doc_info, f"{{{FB2_NS}}}version")
     version_el.text = str(version_val)
 
-    # document-info/date --- обязательна по fb2_xsd. В конфиге, если не указали, то сегодня
-    date_val = fb2_cfg.get("date") or date_cls.today().isoformat()
-    for old in doc_info.findall("fb:date", ns):
-        doc_info.remove(old)
-    ET.SubElement(doc_info, f"{{{FB2_NS}}}date", {"value": date_val}).text = date_val
+    # document-info/date --- опционально по fb2_xsd
+    _update_metadata_title_or_doc_date("doc-date", fb2_cfg, doc_info)
 
 
 def _postprocess_fb2(

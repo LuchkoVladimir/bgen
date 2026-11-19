@@ -7,8 +7,7 @@
     - что не поддержано - это через xml
 - document-info / author (только один скопирован)                           copy-first / настройка как title-author
     + doc-author
-- document-info / date : генерится value=text, нет lang                     defs/refs в schema? и func в python?
-    date -> doc-date
+-? добавить в даты возможность автогенерации (value + text)
 
 ### Полировка readme.md и примера md
 - перед выкладкой на github
