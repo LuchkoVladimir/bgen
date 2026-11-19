@@ -431,11 +431,15 @@ def _update_metadata_title_date(fb2_cfg: dict, title_info: ET.Element) -> None:
 
     value = title_date.get("value")
     text = title_date.get("text")
+    lang = title_date.get("lang")
 
-    if not value and not text:
+    if not value and not text and not lang:
         return
 
     attrs = {"value": str(value)} if value else {}
+    if lang:
+        attrs[f"{{{XML_NS}}}lang"] = lang
+
     date_el = ET.SubElement(title_info, f"{{{FB2_NS}}}date", attrs)
     date_el.text = str(text) if text else (str(value) if value else None)
 

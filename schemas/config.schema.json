@@ -109,6 +109,10 @@
               "type": "string",
               "default": "",
               "description": "Содержимое <date>: человекочитаемая дата, напр. '1863-1867'"
+            },
+            "lang": {
+              "type": "string",
+              "default": ""
             }
           }
         },

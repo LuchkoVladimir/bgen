@@ -88,6 +88,7 @@ fb2:
   # Жанры FB2 (коды). Если не заданы — будет "unrecognised".
   # name  - обязательный параметр
   # match - опциональный
+  # genre         1-n (<.>) -- [cfg]
   genres:
     - name: sf
     - name: detective
@@ -98,6 +99,7 @@ fb2:
   # Каждый элемент — словарь (все поля опциональны, но нужно nickname+ или (first-name+last-name)+):
   #     id         — id автора
   #     first-name, middle-name, last-name, nickname, home-page (список), email (список)
+  # author        1-n (<.>) -- [cfg]
   title-author:
     # Пример: полный словарь
     - first-name: "Иван"
@@ -124,10 +126,13 @@ fb2:
   # Дата произведения (title-info/date).
   #   value - опционален.
   #   text  - опционален.
+  #   lang  - опционален. Язык текстовой части.
   #   {value: "2026-11-05", text: "5 ноября 2026"} — value в ISO ("2026-11-05"), текст для отображения.
+  # date          1   (<.>) -- [cfg]
   title-date:
     value: "2026-11-05"
     text: "5 ноября 2026 (ох и давно)"
+    lang: ru
 
   # coverpage     0-1 (img) -- [pandoc] из metadata:cover-image
   # lang          1   (str) -- [pandoc] из metadata:lang
@@ -163,6 +168,7 @@ fb2:
 
   # Дата документа (дата файла, не произведения — для произведения title-date).
   # Формат ISO (YYYY-MM-DD). Если пусто — ставится текущая дата.
+  # date          1   (str) -- [cfg]
   date: ""
 
   # src-url       0-n (str) -- [xml]
@@ -173,11 +179,13 @@ fb2:
   # id книги.
   #   "" (пусто) — сгенерировать UUID5 от title+author+lang (стабильно, уникально).
   #   "любая строка" — использовать как есть.
+  # id            1   (str) -- [cfg]
   id: ""
 
   # Версия FB2-документа (document-info/version).
   # Пусто — "1.0". Иначе — указанное значение как есть.
   # Увеличивайте при публичном изменении книги (см. спецификацию FB2).
+  # version       1   (str) -- [cfg]
   version: ""
 
   # history       0-1 (md)  -- [xml] История изменений документа
