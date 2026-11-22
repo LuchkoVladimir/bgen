@@ -13,5 +13,6 @@ If not, see https://www.gnu.org/licenses/.
 from .common import BgenError
 from .build import build
 from .project import stat
+from .project import cfg
 
-__all__ = ["BgenError", "build", "stat"]
+__all__ = ["BgenError", "build", "stat", "cfg"]

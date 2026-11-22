@@ -63,14 +63,17 @@
 Почитать readme.md
 Отредактировать config.yaml и текст в body/
 
-    ./bgen.py build <path_to_project>
     ./bgen.py stat <path_to_project>
+    ./bgen.py cfg <path_to_project>
+    ./bgen.py build <path_to_project>
 
 Результат - output/book.fb2.
 
     bgen.py --help
     bgen.py build <path> [--only fb2]   # собрать книгу
     bgen.py stat <path>                 # статистика текста (файлы, знаки, слова)
+    bgen.py cfg <path>                  # построенная конфига проекта книги (из config.yaml, дефолтов в схеме и
+                                            актуальных путей)
 
 stat - только объёмные метрики. Анализ стиля (повторы, частотность) - вне bgen (отдельный инструмент).
 

@@ -207,6 +207,14 @@ def _get_body_files(project_path: Path) -> list[Path]:
     return files
 
 
+# ============================================================
+# Конфигурация
+# ============================================================
+
+def cfg(project_path: Path) -> dict:
+    """Конфигурация проекта. Возвращает dict."""
+    project_path = _validate_project_path(project_path)
+    return _build_config(project_path)
 
 
 # ============================================================
@@ -243,7 +251,6 @@ def stat(project_path: Path) -> tuple[dict | None, str]:
     """Статистика текста проекта. Возвращает dict или None, если файлов нет."""
     project_path = _validate_project_path(project_path)
     files = _get_body_files(project_path)
-    config = _build_config(project_path)
-    return _get_stat_from_md(files), yaml.safe_dump(config, allow_unicode=True, sort_keys=False, default_flow_style=False)
+    return _get_stat_from_md(files)
 
 

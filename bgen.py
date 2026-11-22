@@ -17,6 +17,11 @@ from pathlib import Path
 
 import lib_bgen
 
+try:
+    import yaml
+except ImportError:
+    raise ImportError("Требуется PyYAML. Установите: pip install pyyaml")
+
 
 def cmd_build(args):
     warnings: list[str] = []
@@ -36,7 +41,7 @@ def cmd_build(args):
 
 def cmd_stat(args):
     try:
-        stats, config = lib_bgen.stat(Path(args.path))
+        stats = lib_bgen.stat(Path(args.path))
     except lib_bgen.BgenError as e:
         print(f"Ошибка: {e}", file=sys.stderr)
         sys.exit(1)
@@ -45,11 +50,22 @@ def cmd_stat(args):
         print("Не найдено текстовых файлов.")
         return
 
-    print(f"Конфигурация: {config}")
     print(f"Файлов учтено: {stats['files']}")
     print(f"Знаков с пробелами: {stats['chars_with_spaces']}")
     print(f"Знаков без пробелов: {stats['chars_no_spaces']}")
     print(f"Слов: {stats['words']}")
+
+
+def cmd_cfg(args):
+    try:
+        config = lib_bgen.cfg(Path(args.path))
+    except lib_bgen.BgenError as e:
+        print(f"Ошибка: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    config_str = yaml.safe_dump(config, allow_unicode=True, sort_keys=False, default_flow_style=False)
+
+    print(f"{config_str}")
 
 
 def main():
@@ -74,6 +90,10 @@ def main():
     p_stat = sub.add_parser("stat", help="посчитать статистику текста")
     p_stat.add_argument("path", help="путь к проекту книги")
     p_stat.set_defaults(func=cmd_stat)
+
+    p_stat = sub.add_parser("cfg", help="показать построенную конфигурацию проекта")
+    p_stat.add_argument("path", help="путь к проекту книги")
+    p_stat.set_defaults(func=cmd_cfg)
 
     args = parser.parse_args()
     if not args.command:
