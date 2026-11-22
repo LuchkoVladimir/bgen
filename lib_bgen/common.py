@@ -19,7 +19,7 @@ PROGRAM_VERSION = "1.0.0"
 BGEN_DIR = Path(__file__).resolve().parent.parent
 SCHEMAS_DIR = BGEN_DIR / "schemas"
 TYPOGRAPHY_FILE = SCHEMAS_DIR / "typography.txt"
-FILTER_FILE = BGEN_DIR / "filter_bgen.lua"
+FILTER_FILE = BGEN_DIR / "lib_bgen" / "pandoc_filter.py"
 
 KNOWN_FORMATS = {"fb2", "docx", "epub", "txt"}
 

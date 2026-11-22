@@ -90,7 +90,7 @@ def _run_pandoc_epub(
         "--from", "markdown",
         "--to", "epub3",
         "--standalone",
-        "--lua-filter", str(FILTER_FILE),
+        "--filter", str(FILTER_FILE),
         "--metadata-file", str(meta_path),
         "--resource-path", str(resource_path),
     ]

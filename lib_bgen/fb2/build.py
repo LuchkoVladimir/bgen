@@ -74,7 +74,7 @@ def _run_pandoc_fb2(
         "--from", "markdown",
         "--to", "fb2",
         "--standalone",
-        "--lua-filter", str(FILTER_FILE),
+        "--filter", str(FILTER_FILE),
         "--metadata-file", str(meta_path),
         "--resource-path", str(resource_path),
         "--wrap", wrap_mode,

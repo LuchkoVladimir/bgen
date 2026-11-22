@@ -42,6 +42,7 @@
 - **Pandoc** в `PATH`. Проверено на 3.1.3.
 - **PyYAML**: `pip install pyyaml`.
 - **lxml**: `pip install lxml` (для XSD-валидации FB2).
+- **panflute**: `pip install panflute` (для python-фильтра для pandoc).
 
 
 ## Установка

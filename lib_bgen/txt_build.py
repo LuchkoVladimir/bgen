@@ -41,7 +41,7 @@ def _run_pandoc_txt(
         "--to", "plain",
         "--columns", str(columns),
         "--wrap", wrap_mode,
-        "--lua-filter", str(FILTER_FILE),
+        "--filter", str(FILTER_FILE),
         "--resource-path", str(resource_path),
     ]
     if config.get("trace"):
