@@ -261,6 +261,52 @@ def line_block(elem: pf.LineBlock, doc: pf.Doc) -> pf.Div | None:
     return None
 
 
+# Маркеры для plain-вывода. Можно вынести в конфиг/CLI-флаг.
+_PLAIN_MARKERS: dict[str, dict[str, tuple[str | None, str | None]]] = {
+    "auto": {
+        "strong":    (None, None),
+        "emph":      (None, None),
+        "strikeout": (None, None),
+    },
+    "gutenberg": {
+        "strong":    (None, None),
+        "emph":      (None, None),
+        "strikeout": (None, None),
+    },
+    "none": {
+        "strong":    ("", ""),
+        "emph":      ("", ""),
+        "strikeout": ("", ""),
+    },
+    "md": {
+        "strong":    ("**", "**"),
+        "emph":      ("*", "*"),
+        "strikeout": ("~~", "~~"),
+    },
+    "tags": {
+        "strong":    ("[b]", "[/b]"),
+        "emph":      ("[i]", "[/i]"),
+        "strikeout": ("[s]", "[/s]"),
+    },
+}
+
+@cache
+def get_markers(inline_type: str) -> tuple[str, str]:
+    inline_mode = os.environ.get("BGEN_INLINE_MODE")
+    return _PLAIN_MARKERS[inline_mode][inline_type]
+
+
+def inline_mark(elem_type: str, elem: pf.Element, doc: pf.Doc) -> pf.Element | list[pf.Element] | None:
+    fmt = doc.format
+    if "plain" not in fmt:
+        return None
+    open_m, close_m = get_markers(elem_type)
+    if open_m is not None and close_m is not None:
+        return pf.Str(open_m+pf.stringify(elem)+close_m)
+    else:
+        return None
+
+
 def action(elem: pf.Element, doc: pf.Doc) -> pf.Element | list[pf.Element] | None:
     match elem:
         case pf.Div():
@@ -269,6 +315,12 @@ def action(elem: pf.Element, doc: pf.Doc) -> pf.Element | list[pf.Element] | Non
             return span(elem, doc)
         case pf.LineBlock():
             return line_block(elem, doc)
+        case pf.Strong():
+            return inline_mark("strong", elem, doc)
+        case pf.Emph():
+            return inline_mark("emph", elem, doc)
+        case pf.Strikeout():
+            return inline_mark("strikeout", elem, doc)
     return None
 
 

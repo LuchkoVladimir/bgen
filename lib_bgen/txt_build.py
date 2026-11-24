@@ -35,10 +35,12 @@ def _run_pandoc_txt(
     Без --standalone (не нужен).
     С Lua-фильтром (для .q/.qq и будущей типографики).
     """
+    dest_add = "+gutenberg" if config.get("txt").get("inline-mode") == "gutenberg" else ""
+
     cmd = [
         "pandoc",
         "--from", "markdown",
-        "--to", "plain",
+        "--to", "plain"+dest_add,
         "--columns", str(columns),
         "--wrap", wrap_mode,
         "--filter", str(FILTER_FILE),

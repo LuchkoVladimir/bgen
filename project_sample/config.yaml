@@ -261,6 +261,14 @@ docx:
 txt:
   # включение сборки
   enabled: true
+  # Форматирование inline
+  # inline-mode: auto / none / md / tags / gutenberg
+  #                 auto        none    md              tags                  gutenberg
+  # bold:           текст       текст   **текст**       [b]текст[/b]          ТЕКСТ
+  # italic:         текст       текст   *текст*         [i]текст[/i]          _текст_
+  # bold-italic:    текст       текст   ***текст***     [b][i]текст[/i][/b]   _ТЕКСТ_
+  # strikethrough:  ~~текст~~   текст   ~~текст~~       [s]текст[/s]          ~~текст~~
+  inline-mode: md
   # Ширина строки в символах (--columns).
   columns: 80
   # Перенос строк: auto / none / preserve (--wrap).

@@ -159,6 +159,7 @@
       "additionalProperties": false,
       "properties": {
         "enabled":        { "type": "boolean",                                      "default": false },
+        "inline-mode":    { "type": "string", "enum": ["auto", "none", "md", "tags", "gutenberg"],"default": "auto"},
         "columns":        { "type": "integer", "minimum": 1,                        "default": 80 },
         "wrap-mode":      { "type": "string", "enum": ["auto", "none", "preserve"], "default": "auto" },
         "card":           { "type": "boolean",                                      "default": false }

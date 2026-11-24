@@ -47,6 +47,7 @@ def build(
 
     env = os.environ.copy()
     env["BGEN_TYPOGRAPHY"] = str(config.get("typography-file", ""))
+    env["BGEN_INLINE_MODE"] = str(config.get("txt").get("inline-mode"))
 
     results: list[tuple[str, Path]] = []
     for fmt in formats:
