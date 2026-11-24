@@ -78,6 +78,7 @@ def main():
 
     sub = parser.add_subparsers(dest="command", metavar="КОМАНДА")
 
+    # build book
     p_build = sub.add_parser(
         "build",
         help="собрать книгу в форматах, включённых в config.yaml",
@@ -90,13 +91,15 @@ def main():
     )
     p_build.set_defaults(func=cmd_build)
 
+    # book statistics
     p_stat = sub.add_parser("stat", help="посчитать статистику текста")
     p_stat.add_argument("path", help="путь к проекту книги")
     p_stat.set_defaults(func=cmd_stat)
 
-    p_stat = sub.add_parser("cfg", help="показать построенную конфигурацию проекта")
-    p_stat.add_argument("path", help="путь к проекту книги")
-    p_stat.set_defaults(func=cmd_cfg)
+    # book project configuration
+    p_cfg = sub.add_parser("cfg", help="показать построенную конфигурацию проекта")
+    p_cfg.add_argument("path", help="путь к проекту книги")
+    p_cfg.set_defaults(func=cmd_cfg)
 
     args = parser.parse_args()
     if not args.command:
