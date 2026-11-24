@@ -73,6 +73,9 @@ def main():
         prog="bgen",
         description="bgen: генератор цифровых книг из Markdown.",
     )
+    parser.add_argument("-v", "--version", action="version",
+                       version=f"{lib_bgen.PROGRAM_TITLE} ({lib_bgen.PROGRAM_NAME}) - v{lib_bgen.PROGRAM_VERSION}")
+
     sub = parser.add_subparsers(dest="command", metavar="КОМАНДА")
 
     p_build = sub.add_parser(

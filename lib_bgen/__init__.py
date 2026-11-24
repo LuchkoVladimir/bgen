@@ -10,7 +10,13 @@ See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with this program.
 If not, see https://www.gnu.org/licenses/.
 """
-from .common import BgenError
+from .common import (
+    BgenError,
+    PROGRAM_NAME,
+    PROGRAM_TITLE,
+    PROGRAM_VERSION,
+    )
+
 from .build import build
 from .project import stat
 from .project import cfg
