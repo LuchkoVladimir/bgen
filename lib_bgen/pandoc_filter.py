@@ -173,7 +173,15 @@ def div(elem: pf.Div, doc: pf.Doc) -> pf.Block | list[pf.Block] | None:
     # .annotation: аннотация секции
     if "annotation" in classes:
         inner = render_blocks(elem.content)
-        return pf.RawBlock(f"<annotation>{inner}</annotation>", format="fb2")
+        id = elem.identifier or ""
+        lang = elem.attributes.get("xml:lang", "")
+        anno_open = "<annotation"
+        if id:
+            anno_open += f" id=\"{id}\""
+        if lang:
+            anno_open += f" xml:lang=\"{lang}\""
+        anno_open += ">"
+        return pf.RawBlock(f"{anno_open}{inner}</annotation>", format="fb2")
 
     # .frontispiece: фронтиспис (книги) --- картинка перед title в body
     if "frontispiece" in classes:
@@ -182,18 +190,45 @@ def div(elem: pf.Div, doc: pf.Doc) -> pf.Block | list[pf.Block] | None:
     # .epigraph: эпиграф (книги или главы)
     if "epigraph" in classes:
         inner = render_blocks(elem.content)
-        return pf.RawBlock(f"<epigraph>{inner}</epigraph>", format="fb2")
+        id = elem.identifier or ""
+        epi_open = "<epigraph"
+        if id:
+            epi_open += f" id=\"{id}\""
+        epi_open += ">"
+        return pf.RawBlock(f"{epi_open}{inner}</epigraph>", format="fb2")
 
     # .text-author: автор эпиграфа
     if "text-author" in classes:
         text = pf.stringify(elem).rstrip()
-        return pf.RawBlock(f"<text-author>{text}</text-author>", format="fb2")
+        id = elem.identifier or ""
+        lang = elem.attributes.get("xml:lang", "")
+        style = elem.attributes.get("style", "")
+        ta_open = "<text-author"
+        if id:
+            ta_open += f" id=\"{id}\""
+        if lang:
+            ta_open += f" xml:lang=\"{lang}\""
+        if style:
+            ta_open += f" style=\"{style}\""
+        ta_open += ">"
+        return pf.RawBlock(f"{ta_open}{text}</text-author>", format="fb2")
 
     # .subtitle: смысловой разделитель внутри секции
     if "subtitle" in classes:
         inner = render_blocks(elem.content)
         inner = unwrap_top_tag(inner, "p")
-        return pf.RawBlock(f"<subtitle>{inner}</subtitle>", format="fb2")
+        id = elem.identifier or ""
+        lang = elem.attributes.get("xml:lang", "")
+        style = elem.attributes.get("style", "")
+        su_open = "<subtitle"
+        if id:
+            su_open += f" id=\"{id}\""
+        if lang:
+            su_open += f" xml:lang=\"{lang}\""
+        if style:
+            su_open += f" style=\"{style}\""
+        su_open += ">"
+        return pf.RawBlock(f"{su_open}{inner}</subtitle>", format="fb2")
 
     # .asterism: сильный разделитель
     if "asterism" in classes:

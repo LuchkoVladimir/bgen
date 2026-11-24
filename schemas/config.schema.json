@@ -61,7 +61,6 @@
         },
         "title-author":       {"$ref": "#/$defs/authorType", "default": [] },
         "book-title-lang":    { "type": "string", "default": "" },
-        "annotation-lang":    { "type": "string", "default": "" },
         "keywords": {
           "type": "array",
           "default": [],

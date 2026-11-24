@@ -128,15 +128,14 @@ def _update_book_elements_from_body(body: ET.Element, title_info: ET.Element, co
         body.insert(0, book_fronts[0])
 
     # Вставляем аннотацию книги в <title-info>, собирая одну общую из нескольких, если их было много
+    # Аттрибуты остаются от первой аннотации
     if book_annotations:
         for old in title_info.findall("fb:annotation", ns):
             title_info.remove(old)
-        lang = config.get("fb2").get("annotation-lang")
-        attrs = {f"{{{XML_NS}}}lang": str(lang)} if lang else {}
-        ann = ET.SubElement(title_info, f"{{{FB2_NS}}}annotation", attrs)
-        for annotation_el in book_annotations:
-            for child in list(annotation_el):
-                ann.append(child)
+        first_anno = book_annotations[0]
+        for annotation_el in book_annotations[1:]:
+            first_anno.extend(annotation_el)
+        title_info.append(first_anno)
 
     # Находим индекс куда вставлять эпиграфы (первой <section> в body или конца body, если нет <section>)
     first_section_idx = len(body)
