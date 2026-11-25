@@ -10,11 +10,12 @@ See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with this program.
 If not, see https://www.gnu.org/licenses/.
 """
+import os
 from pathlib import Path
 
 PROGRAM_NAME = "bgen"
 PROGRAM_TITLE = "BookGenerator"
-PROGRAM_VERSION = "2.3.0"
+PROGRAM_VERSION = "2.4.0"
 
 BGEN_DIR = Path(__file__).resolve().parent.parent
 SCHEMAS_DIR = BGEN_DIR / "schemas"
@@ -26,3 +27,15 @@ KNOWN_FORMATS = {"fb2", "docx", "epub", "txt"}
 
 class BgenError(Exception):
     """Ошибка bgen, пригодная для показа пользователю."""
+
+
+def _build_pandoc_env(config: dict, for_chars_count: bool = False) -> dict:
+    env = os.environ.copy()
+    env["BGEN_TYPOGRAPHY"] = str(config.get("typography-file"))
+    if for_chars_count:
+        env["BGEN_INLINE_MODE"] = "none"
+    else:
+        env["BGEN_INLINE_MODE"] = str(config.get("txt").get("inline-mode"))
+    return env
+
+

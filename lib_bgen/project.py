@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import copy
 import re
+import subprocess
 from pathlib import Path
 
 try:
@@ -27,7 +28,7 @@ try:
 except ImportError:
     raise ImportError("Требуется jsonschema. Установите: pip install jsonschema")
 
-from .common import BgenError, KNOWN_FORMATS, SCHEMAS_DIR, TYPOGRAPHY_FILE
+from .common import BgenError, _build_pandoc_env, FILTER_FILE, KNOWN_FORMATS, SCHEMAS_DIR, TYPOGRAPHY_FILE
 
 CONFIG_SCHEMA_FILE = SCHEMAS_DIR / "config.schema.json"
 
@@ -221,36 +222,40 @@ def cfg(project_path: Path) -> dict:
 # Статистика
 # ============================================================
 
-def _strip_markdown(text: str) -> str:
-    """Грубо удаляет Markdown-разметку для статистики."""
-    text = re.sub(r"^#+\s*", "", text, flags=re.MULTILINE)
-    text = re.sub(r"!\[.*?\]\(.*?\)", "", text)
-    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
-    text = re.sub(r"`[^`]*`", "", text)
-    text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
-    text = re.sub(r"[*_~]", "", text)
-    text = re.sub(r"^:::\s*\{[^}]*\}\s*$", "", text, flags=re.MULTILINE)
-    text = re.sub(r"^:::\s*$", "", text, flags=re.MULTILINE)
-    text = re.sub(r"\[([^\]]*)\]\{[^}]*\}", r"\1", text)  # Span
-    return text
+def _strip_markdown(project_path: Path, file: Path, pandoc_env: dict) -> str:
+    """Удаляет Markdown-разметку для статистики."""
+    cmd = [
+        "pandoc",
+        "--from", "markdown",
+        "--filter", str(FILTER_FILE),
+        "--to", "plain-strikeout",
+        "--resource-path", str(project_path),
+        str(file)
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, env=pandoc_env)
+    if result.returncode != 0:
+        raise BgenError(f"pandoc завершился с ошибкой:\n{result.stderr}")
+    return result.stdout
 
 
-def _get_stat_from_md(files: list[Path]) -> dict:
+def _get_stat_from_md(config: dict, project_path: Path, files: list[Path]) -> dict[Path, tuple[int, int]]:
     """Считает объёмные метрики по списку .md файлов."""
-    full = "\n".join(_strip_markdown(p.read_text(encoding="utf-8")) for p in files)
-    words = re.findall(r"[A-Za-zА-Яа-яЁё]+(?:-[A-Za-zА-Яа-яЁё]+)*", full)
-    return {
-        "files": len(files),
-        "chars_with_spaces": len(full),
-        "chars_no_spaces": len(re.sub(r"\s", "", full)),
-        "words": len(words),
-    }
+    pandoc_env = _build_pandoc_env(config, for_chars_count = True)
+    converted_files: dict[Path, tuple[int, int]] = {}
+    for file in files:
+        stripped = _strip_markdown(project_path, file, pandoc_env)
+        words = re.findall(r"[A-Za-zА-Яа-яЁё]+(?:-[A-Za-zА-Яа-яЁё]+)*", stripped)
+        converted_files[file.relative_to(project_path / "body")] = [len(words), len(stripped)]
+    return converted_files
 
 
-def stat(project_path: Path) -> tuple[dict | None, str]:
-    """Статистика текста проекта. Возвращает dict или None, если файлов нет."""
+def stat(project_path: Path) -> tuple[dict[Path, tuple[int, int]], list[str], str]:
+    """Статистика текста проекта. Возвращает dict с данными по каждому файлу, авторов и название."""
     project_path = _validate_project_path(project_path)
     files = _get_body_files(project_path)
-    return _get_stat_from_md(files)
+    config = _build_config(project_path)
+    authors = config.get("metadata").get("author")
+    title = config.get("metadata").get("title")
+    return _get_stat_from_md(config, project_path, files), authors, title
 
 

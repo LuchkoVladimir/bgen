@@ -23,6 +23,27 @@ except ImportError:
     raise ImportError("Требуется PyYAML. Установите: pip install pyyaml")
 
 
+# ============================================================
+# Оформление вывода
+# ============================================================
+
+def print_cfg_stat_check_line(type: str) -> None:
+    match type:
+        case "long":
+            print("---------------------------------------")
+        case "short":
+            print("-----")
+
+
+def print_cfg_stat_check_title(authors: list[str], title: str) -> None:
+    print(f" AUTHOR: {'; '.join(authors)}")
+    print(f"  TITLE: {title}")
+
+
+# ============================================================
+# Команды
+# ============================================================
+
 def cmd_build(args):
     warnings: list[str] = []
     try:
@@ -41,19 +62,26 @@ def cmd_build(args):
 
 def cmd_stat(args):
     try:
-        stats = lib_bgen.stat(Path(args.path))
+        stats, authors, title = lib_bgen.stat(Path(args.path))
     except lib_bgen.BgenError as e:
         print(f"Ошибка: {e}", file=sys.stderr)
         sys.exit(1)
 
-    if stats is None:
-        print("Не найдено текстовых файлов.")
-        return
+    t_w = sum(a for a, _ in stats.values())
+    t_c = sum(b for _, b in stats.values())
 
-    print(f"Файлов учтено: {stats['files']}")
-    print(f"Знаков с пробелами: {stats['chars_with_spaces']}")
-    print(f"Знаков без пробелов: {stats['chars_no_spaces']}")
-    print(f"Слов: {stats['words']}")
+    print_cfg_stat_check_line("long")
+    print_cfg_stat_check_title(authors, title)
+    print_cfg_stat_check_line("long")
+
+    print("  CHARS |  WORDS |  C/W | FILE")
+    print("--------|--------|------|--------------")
+    print(f"{t_c:>7} | {t_w:>6} | {t_c/t_w:>4.1f} | {len(stats)} file(s)")
+    print("--------|--------|------|--------------")
+    for file_name, (words, chars) in stats.items():
+        print(f"{chars:>7} | {words:>6} | {chars/words:>4.1f} | {str(file_name)}")
+
+    print_cfg_stat_check_line("long")
 
 
 def cmd_cfg(args):
@@ -67,6 +95,8 @@ def cmd_cfg(args):
 
     print(f"{config_str}")
 
+
+# ============================================================
 
 def main():
     parser = argparse.ArgumentParser(

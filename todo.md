@@ -6,29 +6,6 @@
 
 ## Средний приоритет
 
-### stat
-- author + title
-- существующий stat
-- структура по md в body - заголовки всех уровней и размеры глав.
-
-<authors>
-<title>
-
-totals:
-chars:
-words:
-files:
-
-annotation: chars-words
-epigraph: chars-words
-
-chars-words section 1     
-chars-words subsection 1.1
-chars-words subsection 1.2
-chars-words section 2     
-chars-words subsection 2.1
-chars-words subsection 2.2
-
 ### check
 - чек конфиги на валидность (тут же и резолвинг указанных файлов)
 - чек на наличие ресурсов (картинок), указанных в md.

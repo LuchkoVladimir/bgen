@@ -12,10 +12,9 @@ If not, see https://www.gnu.org/licenses/.
 """
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
-from .common import BgenError
+from .common import BgenError, _build_pandoc_env
 from .project import (
     _build_config,
     _resolve_formats,
@@ -45,9 +44,7 @@ def build(
     output_dir = project_path / config.get("output-dir", "output")
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    env = os.environ.copy()
-    env["BGEN_TYPOGRAPHY"] = str(config.get("typography-file", ""))
-    env["BGEN_INLINE_MODE"] = str(config.get("txt").get("inline-mode"))
+    env = _build_pandoc_env(config)
 
     results: list[tuple[str, Path]] = []
     for fmt in formats:
