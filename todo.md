@@ -7,35 +7,8 @@
 ## Средний приоритет
 
 ### check
-- чек конфиги на валидность (тут же и резолвинг указанных файлов)
-- чек на наличие ресурсов (картинок), указанных в md.
-
-<authors>
-<title>
-
-images:
-cover:     found : path0
-           found : path1
-           found : path2
-       not found : path3
-...
-
-build files:
-fb2-xml:    off   :
-epub-css:   bgen  : <path>
-epub-xml:   off   :
-docx-ref:   found : <path>
-typography: bgen  : <path>
-
-body order:
-file1
-file2
-file3
-...
-
-### typo
 - чек на типографию - поиск ", шаблонов " - " и прочих без нужных пробелов и т. д.
-- описать правила в readme
+- описать правила schemas/checks.txt
 
 <authors>
 <title>

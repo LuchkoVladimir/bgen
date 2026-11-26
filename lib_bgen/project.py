@@ -212,10 +212,13 @@ def _get_body_files(project_path: Path) -> list[Path]:
 # Конфигурация
 # ============================================================
 
-def cfg(project_path: Path) -> dict:
-    """Конфигурация проекта. Возвращает dict."""
+def cfg(project_path: Path) -> tuple[dict, list[str], str]:
+    """Конфигурация проекта. Возвращает конфигу, авторов и название."""
     project_path = _validate_project_path(project_path)
-    return _build_config(project_path)
+    config = _build_config(project_path)
+    authors = config.get("metadata").get("author")
+    title = config.get("metadata").get("title")
+    return config, authors, title
 
 
 # ============================================================

@@ -86,14 +86,20 @@ def cmd_stat(args):
 
 def cmd_cfg(args):
     try:
-        config = lib_bgen.cfg(Path(args.path))
+        config, authors, title = lib_bgen.cfg(Path(args.path))
     except lib_bgen.BgenError as e:
         print(f"Ошибка: {e}", file=sys.stderr)
         sys.exit(1)
 
     config_str = yaml.safe_dump(config, allow_unicode=True, sort_keys=False, default_flow_style=False)
 
+    print_cfg_stat_check_line("long")
+    print_cfg_stat_check_title(authors, title)
+    print_cfg_stat_check_line("long")
+    print("CONFIG:")
+    print_cfg_stat_check_line("short")
     print(f"{config_str}")
+    print_cfg_stat_check_line("long")
 
 
 # ============================================================
