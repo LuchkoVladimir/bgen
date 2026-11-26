@@ -20,5 +20,6 @@ from .common import (
 from .build import build
 from .project import stat
 from .project import cfg
+from .project import check
 
-__all__ = ["BgenError", "build", "stat", "cfg"]
+__all__ = ["BgenError", "build", "stat", "cfg", "check"]

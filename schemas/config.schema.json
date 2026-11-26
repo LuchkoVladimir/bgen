@@ -9,6 +9,7 @@
     "output-dir":       { "type": "string",   "default": "output" },
     "output-file-base": { "type": "string",   "default": "book" },
     "typography-file":  { "type": "string",   "default": "" },
+    "rules-file":       { "type": "string",   "default": "" },
     "trace":            { "type": "boolean",  "default": false },
     "verbose":          { "type": "boolean",  "default": false },
     "keep-metadata":    { "type": "boolean",  "default": false },

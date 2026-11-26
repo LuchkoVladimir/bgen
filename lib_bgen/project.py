@@ -28,7 +28,7 @@ try:
 except ImportError:
     raise ImportError("Требуется jsonschema. Установите: pip install jsonschema")
 
-from .common import BgenError, _build_pandoc_env, FILTER_FILE, KNOWN_FORMATS, SCHEMAS_DIR, TYPOGRAPHY_FILE
+from .common import BgenError, _build_pandoc_env, FILTER_FILE, KNOWN_FORMATS, SCHEMAS_DIR, TYPOGRAPHY_FILE, RULES_FILE
 
 CONFIG_SCHEMA_FILE = SCHEMAS_DIR / "config.schema.json"
 
@@ -54,6 +54,14 @@ def _resolve_file_paths(project_path: Path, config: dict) -> dict:
         missing.append(f"файл не найден: {file_path}")
     else:
         config["typography-file"] = str(file_path)
+
+    # config → bgen/schemas/rules.txt
+    file = config.get("rules-file")
+    file_path = (project_path / file).resolve() if file else RULES_FILE
+    if not file_path.exists():
+        missing.append(f"файл не найден: {file_path}")
+    else:
+        config["rules-file"] = str(file_path)
 
     # config → bgen/schemas/reference.docx
     file = docx_cfg.get("reference-file")
@@ -260,5 +268,152 @@ def stat(project_path: Path) -> tuple[dict[Path, tuple[int, int]], list[str], st
     authors = config.get("metadata").get("author")
     title = config.get("metadata").get("title")
     return _get_stat_from_md(config, project_path, files), authors, title
+
+
+# ============================================================
+# Проверка по правилам
+# ============================================================
+
+_RULE_RE = re.compile(r'^RULE:(\d+):"(.+)"$')
+
+
+def parse_rules(path: Path, rules: list[int] | None) -> dict[int, tuple[str, str, list[tuple[int, str, str]]]]:
+    """
+    Читает файл с правилами вида:
+
+        RULE:XXX:pattern
+        Описание правила, возможно многострочное.
+        Пустая строка или следующий RULE завершает описание.
+
+    Возвращает dict:
+        {номер: (pattern, описание, [])}
+
+    Список находок (третий элемент) пуст - заполняется отдельным анализом.
+    """
+    result: dict[int, tuple[str, str, list[tuple[int, str, str]]]] = {}
+
+    text = path.read_text(encoding="utf-8")
+    # нормализуем переводы строк, чтобы \r\n и \r не мешали
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+
+    number: int | None = None
+    pattern = ""
+    desc: list[str] = []
+
+    def flush() -> None:
+        if number is not None:
+            result[number] = (pattern, "\n".join(desc).strip(), [])
+
+    for line in text.split("\n"):
+        if m := _RULE_RE.match(line):
+            flush()
+            number = int(m.group(1))   # "001" -> 1, "01" -> 1, "1" -> 1
+            pattern = m.group(2)
+            desc = []
+        elif not line.strip():
+            flush()
+            number = None
+        elif number is not None:
+            desc.append(line)
+
+    flush()  # последнее правило, если файл кончился без пустой строки
+
+    if rules is not None:
+        allowed = set(rules)
+        result = {k: v for k, v in result.items() if k in allowed}
+
+    return result
+
+
+def parse_files_with_rules(
+    project_path: Path,
+    files: list[Path],
+    rules: dict[int, tuple[str, str, list[tuple[int, str, str]]]],
+) -> dict[int, tuple[str, str, list[tuple[int, str, str]]]]:
+    """
+    Проходит по files, ищет в каждой строке паттерны из rules и дозаполняет
+    третий элемент каждого правила - список находок (line_no, file_name, line).
+
+    Параметры:
+        project_path - путь к проекту
+        files - список путей к файлам для анализа.
+        rules - результат parse_rules(); мутируется (findings дополняются).
+
+    Возвращает тот же rules (для удобства цепочки).
+    """
+    # Предкомпилируем регексы один раз, а не на каждую строку.
+    compiled: dict[int, re.Pattern[str]] = {}
+    for num, (pattern, _desc, _findings) in rules.items():
+        try:
+            compiled[num] = re.compile(pattern)
+        except re.error as e:
+            raise ValueError(
+                f"правило {num}: некорректный регекс {pattern!r}: {e}"
+            ) from e
+
+    for file in files:
+        # читаем как текст, нормализуем переводы строк
+        text = file.read_text(encoding="utf-8")
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
+
+        # имя файла для отчёта - часть от body
+        fname = file.relative_to(project_path / "body")
+
+        for line_no, line in enumerate(text.split("\n"), start=1):
+            for num, (pattern, _desc, findings) in rules.items():
+                hit = compiled[num].search(line) is not None
+                if hit:
+                    findings.append((line_no, fname, line))
+
+    return rules
+
+
+def check(
+        project_path: Path,
+        list_rules: bool,
+        rules_ids: str | None = None,
+) -> tuple[dict[int, tuple[str, str, list[tuple[int, str, str]]]], list[str], str]:
+    """Статистика текста проекта. Возвращает dict с результатами проверки по правилам, авторов и название.
+        result: dict[int, tuple[str, str, list[tuple[int, str, str]]]] = {
+                1: (
+                    "Паттерн_1",
+                    "Описание первого правила.\nВозможно и в несколько строк.",
+                    [
+                        (237, "some_file_name.md" , "Сам текст из исходника."),
+                        (25, "some2_file_name.md" , "В котором была найдена ошибка."),
+                        (318, "some2_file_name.md" , "И ещё из исходника."),
+                    ],
+                ),
+                2: (
+                    "Паттерн_2",
+                    "Описание второго правила.",
+                    [
+                        (112, "some2_file_name.md" , "Текст из исходника."),
+                        (5, "some3_file_name.md" , "И ещё."),
+                    ],
+                ),
+            }
+    """
+    project_path = _validate_project_path(project_path)
+    files = _get_body_files(project_path)
+    config = _build_config(project_path)
+
+    authors = config.get("metadata").get("author")
+    title = config.get("metadata").get("title")
+    rules_file = Path(config.get("rules-file"))
+
+    if rules_ids is not None:
+        rules_values = [int(r.strip()) for r in rules_ids.split(",") if r.strip()]
+    else:
+        rules_values = None
+
+    rules = parse_rules(rules_file, rules_values)
+
+    if list_rules:
+        result = rules;
+    else:
+        result = parse_files_with_rules(project_path, files, rules)
+
+    return result, authors, title
 
 

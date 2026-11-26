@@ -102,6 +102,28 @@ def cmd_cfg(args):
     print_cfg_stat_check_line("long")
 
 
+def cmd_check(args):
+    try:
+        warns, authors, title = lib_bgen.check(Path(args.path), list_rules=args.list, rules_ids=args.only)
+    except lib_bgen.BgenError as e:
+        print(f"Ошибка: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    desc_indent = "   "
+
+    print_cfg_stat_check_line("long")
+    print_cfg_stat_check_title(authors, title)
+    print_cfg_stat_check_line("long")
+    for id, (pat, desc, w) in warns.items():
+        print(f" RULE {id:03d}: \"{pat}\"")
+        print(desc_indent + desc.replace("\n", "\n" + desc_indent))
+        print_cfg_stat_check_line("short")
+        for line_n, file, line in w:
+            print(f"   [{line_n}:{file}]:")
+            print(f"{line}")
+        print_cfg_stat_check_line("long")
+
+
 # ============================================================
 
 def main():
@@ -136,6 +158,22 @@ def main():
     p_cfg = sub.add_parser("cfg", help="показать построенную конфигурацию проекта")
     p_cfg.add_argument("path", help="путь к проекту книги")
     p_cfg.set_defaults(func=cmd_cfg)
+
+    # book src checks by given rules
+    p_check = sub.add_parser("check", help="проверить исходники проекта по предоставленным правилам")
+    p_check.add_argument("path", help="путь к проекту книги")
+    p_check.add_argument(
+        "--only",
+        metavar="RULE_ID[,RULE_ID...]",
+        help="проверить только на указанные правила",
+    )
+    p_check.add_argument(
+        "--list",
+        action="store_true",
+        default=False,
+        help="вывести правила, паттерны и их описания для указанного проекта",
+    )
+    p_check.set_defaults(func=cmd_check)
 
     args = parser.parse_args()
     if not args.command:
