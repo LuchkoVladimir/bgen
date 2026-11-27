@@ -442,7 +442,7 @@ def _update_metadata_authors(fb2_cfg: dict, title_info: ET.Element, doc_info: ET
         _update_title_or_doc_author(fb2_cfg, "doc-author", doc_info)
 
 
-def _update_metadata_title_or_doc_date(elem: str, fb2_cfg: dict, some_info: ET.Element) -> None:
+def _update_metadata_title_or_doc_date(elem: str, fb2_cfg: dict, some_info: ET.Element, today_if_none: bool = False) -> None:
     """Добавляет {title/document}-info/ date из fb2.{title/doc}-date ({value, text, lang}."""
     ns = {"fb": FB2_NS}
 
@@ -455,7 +455,11 @@ def _update_metadata_title_or_doc_date(elem: str, fb2_cfg: dict, some_info: ET.E
     lang = some_date.get("lang")
 
     if not value and not text and not lang:
-        return
+        if today_if_none:
+            value = date_cls.today().isoformat()
+            text = value
+        else:
+            return
 
     for old in some_info.findall("fb:date", ns):
         some_info.remove(old)
@@ -538,7 +542,7 @@ def _update_metadata(config: dict, title_info: ET.Element, doc_info: ET.Element)
     version_el.text = str(version_val)
 
     # document-info/date --- опционально по fb2_xsd
-    _update_metadata_title_or_doc_date("doc-date", fb2_cfg, doc_info)
+    _update_metadata_title_or_doc_date("doc-date", fb2_cfg, doc_info, today_if_none = True)
 
 
 def _postprocess_fb2(
