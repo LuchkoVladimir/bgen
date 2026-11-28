@@ -23,9 +23,9 @@ try:
 except ImportError:
     raise ImportError("Требуется PyYAML. Установите: pip install pyyaml")
 
-from ..common import FILTER_FILE, BgenError
-from .postprocess import _postprocess_fb2
-from .validate import _validate_fb2
+from .common import FILTER_FILE, BgenError
+from .fb2_postprocess import _postprocess_fb2
+from .fb2_validate import _validate_fb2
 
 
 def _build_pandoc_metadata(

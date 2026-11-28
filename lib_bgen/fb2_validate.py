@@ -19,7 +19,7 @@ try:
 except ImportError:
     raise ImportError("Требуется lxml. Установите: pip install lxml")
 
-from ..common import FB2_XSD_FILE, BgenError
+from .common import FB2_XSD_FILE, BgenError
 
 
 def _validate_fb2(fb2_path: Path) -> list[str]:

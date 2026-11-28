@@ -158,7 +158,7 @@ def build(
     results: list[tuple[str, Path]] = []
     for fmt in formats:
         if fmt == "fb2":
-            from .fb2.build import _build_fb2
+            from .fb2_build import _build_fb2
             output_file = _build_fb2(project_path, md_files, config, env, warnings)
             results.append((fmt, output_file))
         elif fmt == "docx":

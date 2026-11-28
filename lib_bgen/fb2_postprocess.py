@@ -18,7 +18,7 @@ import xml.etree.ElementTree as ET
 from datetime import date as date_cls
 from pathlib import Path
 
-from ..common import (
+from .common import (
         BgenError,
         PROGRAM_NAME,
         PROGRAM_TITLE,
