@@ -79,7 +79,6 @@ def _build_txt(
     project_path: Path,
     md_files: list[Path],
     config: dict,
-    output_dir: Path,
     env: dict,
     warnings: list[str],
 ) -> Path:
@@ -89,22 +88,23 @@ def _build_txt(
     в начало, если config.yaml: txt.card: true.
     Возвращает путь к файлу. Бросает BgenError при ошибке Pandoc.
     """
-    output_path = output_dir / f"{config.get("output-file-base")}.txt"
+    output_dir = Path(config.get("output-dir"))
+    output_file = output_dir / f"{config.get("output-file-base")}.txt"
     txt_cfg = config.get("txt")
     columns = txt_cfg.get("columns")
     wrap_mode = txt_cfg.get("wrap-mode")
     card = txt_cfg.get("card")
 
     _run_pandoc_txt(
-        md_files, output_path, project_path, columns, wrap_mode, config, env, warnings,
+        md_files, output_file, project_path, columns, wrap_mode, config, env, warnings,
     )
 
     if card:
         card_text = _make_card(config)
         if card_text:
-            body = output_path.read_text(encoding="utf-8")
-            output_path.write_text(card_text + "\n" + body, encoding="utf-8")
+            body = output_file.read_text(encoding="utf-8")
+            output_file.write_text(card_text + "\n" + body, encoding="utf-8")
 
-    return output_path
+    return output_file
 
 

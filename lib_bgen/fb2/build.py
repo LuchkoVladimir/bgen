@@ -96,7 +96,6 @@ def _build_fb2(
     project_path: Path,
     md_files: list[Path],
     config: dict,
-    output_dir: Path,
     env: dict,
     warnings: list[str],
 ) -> Path:
@@ -107,7 +106,8 @@ def _build_fb2(
     Бросает BgenError при ошибке.
     Возвращает (путь к файлу).
     """
-    output_path = output_dir / f"{config.get("output-file-base")}.fb2"
+    output_dir = Path(config.get("output-dir"))
+    output_file = output_dir / f"{config.get("output-file-base")}.fb2"
     fb2_cfg = config.get("fb2")
     keep_metadata = config.get("keep-metadata")
 
@@ -125,23 +125,23 @@ def _build_fb2(
         meta_path = _build_pandoc_metadata(project_path, config, tmpdir, warnings)
         if keep_metadata:
             shutil.copy(meta_path, output_dir / "fb2_metadata.yaml")   
-        _run_pandoc_fb2(md_files, meta_path, output_path, project_path, wrap_mode, config, env, warnings)
+        _run_pandoc_fb2(md_files, meta_path, output_file, project_path, wrap_mode, config, env, warnings)
 
     # pandoc формирует fb2 со множеством проблем, поэтому требуется постобработка
-    _postprocess_fb2(output_path, config, warnings)
+    _postprocess_fb2(output_file, config, warnings)
 
-    xsd_errors = _validate_fb2(output_path)
+    xsd_errors = _validate_fb2(output_file)
     if xsd_errors:
         error_text = "\n".join(xsd_errors)
         raise BgenError(f"FB2 не прошёл валидацию по XSD:\n{error_text}")
 
     # fb2.zip: сжать рядом (не вместо)
     if fb2_cfg.get("zip"):
-        zip_path = output_path.with_suffix(output_path.suffix + ".zip")  # book.fb2.zip
+        zip_path = output_file.with_suffix(output_file.suffix + ".zip")  # book.fb2.zip
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            zf.write(output_path, arcname=output_path.name)
+            zf.write(output_file, arcname=output_file.name)
         warnings.append(f"FB2 зазипован: {zip_path}")
 
-    return output_path
+    return output_file
 
 

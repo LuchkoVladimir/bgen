@@ -126,7 +126,6 @@ def _build_epub(
     project_path: Path,
     md_files: list[Path],
     config: dict,
-    output_dir: Path,
     env: dict,
     warnings: list[str],
 ) -> Path:
@@ -137,7 +136,8 @@ def _build_epub(
     Если файл не найден — предупреждение, сборка продолжается.
     Возвращает путь к файлу. Бросает BgenError при ошибке Pandoc.
     """
-    output_path = output_dir / f"{config.get("output-file-base")}.epub"
+    output_dir = Path(config.get("output-dir"))
+    output_file = output_dir / f"{config.get("output-file-base")}.epub"
     keep_metadata = config.get("keep-metadata")
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -150,10 +150,10 @@ def _build_epub(
             if add_meta_yaml_path is not None:
                 shutil.copy(add_meta_yaml_path, output_dir / "epub_addon_metadata.yaml")
         _run_pandoc_epub(
-            md_files, meta_path, add_meta_yaml_path, add_meta_xml_path, output_path, project_path,
+            md_files, meta_path, add_meta_yaml_path, add_meta_xml_path, output_file, project_path,
             cover_path, config, env, warnings,
         )
 
-    return output_path
+    return output_file
 
 

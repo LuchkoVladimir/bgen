@@ -85,7 +85,6 @@ def _build_docx(
     project_path: Path,
     md_files: list[Path],
     config: dict,
-    output_dir: Path,
     env: dict,
     warnings: list[str],
 ) -> Path:
@@ -95,7 +94,8 @@ def _build_docx(
     Если файл не найден — предупреждение, Pandoc использует дефолтный шаблон.
     Возвращает путь к файлу. Бросает BgenError при ошибке Pandoc.
     """
-    output_path = output_dir / f"{config.get("output-file-base")}.docx"
+    output_dir = Path(config.get("output-dir"))
+    output_file = output_dir / f"{config.get("output-file-base")}.docx"
     keep_metadata = config.get("keep-metadata")
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -104,9 +104,9 @@ def _build_docx(
         if keep_metadata:
             shutil.copy(meta_path, output_dir / "docx_metadata.yaml")
         _run_pandoc_docx(
-            md_files, meta_path, output_path, project_path, config, env, warnings
+            md_files, meta_path, output_file, project_path, config, env, warnings
         )
 
-    return output_path
+    return output_file
 
 

@@ -42,6 +42,25 @@ from .common import (
 KNOWN_FORMATS = {"fb2", "docx", "epub", "txt"}
 
 # ============================================================
+# Получение данных проекта книги
+# ============================================================
+
+def _get_and_check_book_project_data(project_path: Path) -> tuple[Path, list[Path], dict]:
+    project_path = project_path.resolve()
+    if not project_path.is_dir():
+        raise BgenError(f"{project_path} не директория")
+    config = _build_config(project_path)
+    md_files = _get_body_files(project_path)
+    return project_path, md_files, config
+
+
+def _get_book_project_card(config: dict) -> tuple[list[str], str]:
+    authors = config.get("metadata").get("author")
+    title = config.get("metadata").get("title")
+    return authors, title
+
+
+# ============================================================
 # Конфигурация
 # ============================================================
 def _resolve_file_paths(project_path: Path, config: dict) -> dict:
@@ -55,6 +74,12 @@ def _resolve_file_paths(project_path: Path, config: dict) -> dict:
     epub_cfg = config.get("epub")
 
     missing: list[str] = []
+
+    # output-dir
+    output_dir = project_path / config.get("output-dir")
+    output_dir = output_dir.resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    config["output-dir"] = str(output_dir)
 
     # config → bgen/schemas/typography.txt
     file = config.get("typography-file")
@@ -177,14 +202,6 @@ def _build_config(project_path: Path) -> dict:
     return config
 
 
-def _validate_project_path(project_path: Path) -> Path:
-    """Проверяет, что путь — существующая директория. Возвращает resolve()."""
-    project_path = project_path.resolve()
-    if not project_path.is_dir():
-        raise BgenError(f"{project_path} не директория")
-    return project_path
-
-
 def _resolve_formats(config: dict, only: str | None) -> list[str]:
     """Определяет список форматов для сборки.
 
@@ -231,10 +248,8 @@ def _get_body_files(project_path: Path) -> list[Path]:
 
 def cfg(project_path: Path) -> tuple[dict, list[str], str]:
     """Конфигурация проекта. Возвращает конфигу, авторов и название."""
-    project_path = _validate_project_path(project_path)
-    config = _build_config(project_path)
-    authors = config.get("metadata").get("author")
-    title = config.get("metadata").get("title")
+    project_path, _, config = _get_and_check_book_project_data(project_path)
+    authors, title = _get_book_project_card(config)
     return config, authors, title
 
 
@@ -271,12 +286,9 @@ def _get_stat_from_md(config: dict, project_path: Path, files: list[Path]) -> di
 
 def stat(project_path: Path) -> tuple[dict[Path, tuple[int, int]], list[str], str]:
     """Статистика текста проекта. Возвращает dict с данными по каждому файлу, авторов и название."""
-    project_path = _validate_project_path(project_path)
-    files = _get_body_files(project_path)
-    config = _build_config(project_path)
-    authors = config.get("metadata").get("author")
-    title = config.get("metadata").get("title")
-    return _get_stat_from_md(config, project_path, files), authors, title
+    project_path, md_files, config = _get_and_check_book_project_data(project_path)
+    authors, title = _get_book_project_card(config)
+    return _get_stat_from_md(config, project_path, md_files), authors, title
 
 
 # ============================================================
@@ -403,14 +415,12 @@ def check(
                 ),
             }
     """
-    project_path = _validate_project_path(project_path)
-    files = _get_body_files(project_path)
-    config = _build_config(project_path)
 
-    authors = config.get("metadata").get("author")
-    title = config.get("metadata").get("title")
+    project_path, md_files, config = _get_and_check_book_project_data(project_path)
+
+    authors, title = _get_book_project_card(config)
+
     rules_file = Path(config.get("rules-file"))
-
     if rules_ids is not None:
         rules_values = [int(r.strip()) for r in rules_ids.split(",") if r.strip()]
     else:
@@ -421,7 +431,7 @@ def check(
     if list_rules:
         result = rules;
     else:
-        result = parse_files_with_rules(project_path, files, rules)
+        result = parse_files_with_rules(project_path, md_files, rules)
 
     return result, authors, title
 
@@ -454,36 +464,28 @@ def build(
     if warnings is None:
         warnings = []
 
-    project_path = _validate_project_path(project_path)
-    config = _build_config(project_path)
-
+    project_path, md_files, config = _get_and_check_book_project_data(project_path)
     formats = _resolve_formats(config, only)
-
-    output_dir = project_path / config.get("output-dir", "output")
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    md_files = _get_body_files(project_path)
-
     env = _build_pandoc_env(config)
 
     results: list[tuple[str, Path]] = []
     for fmt in formats:
         if fmt == "fb2":
             from .fb2.build import _build_fb2
-            output_path = _build_fb2(project_path, md_files, config, output_dir, env, warnings)
-            results.append((fmt, output_path))
+            output_file = _build_fb2(project_path, md_files, config, env, warnings)
+            results.append((fmt, output_file))
         elif fmt == "docx":
             from .docx_build import _build_docx
-            output_path = _build_docx(project_path, md_files, config, output_dir, env, warnings)
-            results.append((fmt, output_path))
+            output_file = _build_docx(project_path, md_files, config, env, warnings)
+            results.append((fmt, output_file))
         elif fmt == "epub":
             from .epub_build import _build_epub
-            output_path = _build_epub(project_path, md_files, config, output_dir, env, warnings)
-            results.append((fmt, output_path))
+            output_file = _build_epub(project_path, md_files, config, env, warnings)
+            results.append((fmt, output_file))
         elif fmt == "txt":
             from .txt_build import _build_txt
-            output_path = _build_txt(project_path, md_files, config, output_dir, env, warnings)
-            results.append((fmt, output_path))
+            output_file = _build_txt(project_path, md_files, config, env, warnings)
+            results.append((fmt, output_file))
         else:
             raise BgenError(f"формат {fmt} ещё не реализован")
     return results
