@@ -19,10 +19,7 @@ try:
 except ImportError:
     raise ImportError("Требуется lxml. Установите: pip install lxml")
 
-from ..common import SCHEMAS_DIR, BgenError
-
-FB2_SCHEMAS_DIR = SCHEMAS_DIR / "fb2_xsd"
-FB2_XSD = FB2_SCHEMAS_DIR / "FictionBook.xsd"
+from ..common import FB2_XSD_FILE, BgenError
 
 
 def _validate_fb2(fb2_path: Path) -> list[str]:
@@ -31,10 +28,10 @@ def _validate_fb2(fb2_path: Path) -> list[str]:
     Если XSD-файл не найден — BgenError: без схемы валидация бессмысленна.
     """
     try:
-        schema_doc = lxml_etree.parse(str(FB2_XSD))
+        schema_doc = lxml_etree.parse(str(FB2_XSD_FILE))
         schema = lxml_etree.XMLSchema(schema_doc)
     except lxml_etree.XMLSchemaParseError as e:
-        raise BgenError(f"не удалось загрузить XSD-схему {FB2_XSD}: {e}")
+        raise BgenError(f"не удалось загрузить XSD-схему {FB2_XSD_FILE}: {e}")
 
     try:
         doc = lxml_etree.parse(str(fb2_path))

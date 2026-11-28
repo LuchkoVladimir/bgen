@@ -17,9 +17,11 @@ from .common import (
     PROGRAM_VERSION,
     )
 
-from .build import build
-from .project import stat
-from .project import cfg
-from .project import check
+from .project import (
+    build,
+    stat,
+    cfg,
+    check,
+    )
 
 __all__ = ["BgenError", "build", "stat", "cfg", "check"]

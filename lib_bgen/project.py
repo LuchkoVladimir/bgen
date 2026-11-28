@@ -13,6 +13,7 @@ If not, see https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 import copy
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -28,9 +29,17 @@ try:
 except ImportError:
     raise ImportError("Требуется jsonschema. Установите: pip install jsonschema")
 
-from .common import BgenError, _build_pandoc_env, FILTER_FILE, KNOWN_FORMATS, SCHEMAS_DIR, TYPOGRAPHY_FILE, RULES_FILE
+from .common import (
+    BgenError,
+    FILTER_FILE,
+    CONFIG_SCHEMA_FILE,
+    TYPOGRAPHY_FILE,
+    RULES_FILE,
+    DOCX_REF_FILE,
+    EPUB_CSS_FILE,
+    )
 
-CONFIG_SCHEMA_FILE = SCHEMAS_DIR / "config.schema.json"
+KNOWN_FORMATS = {"fb2", "docx", "epub", "txt"}
 
 # ============================================================
 # Конфигурация
@@ -65,7 +74,7 @@ def _resolve_file_paths(project_path: Path, config: dict) -> dict:
 
     # config → bgen/schemas/reference.docx
     file = docx_cfg.get("reference-file")
-    file_path = (project_path / file).resolve() if file else SCHEMAS_DIR / "reference.docx"
+    file_path = (project_path / file).resolve() if file else DOCX_REF_FILE
     if not file_path.exists():
         missing.append(f"файл не найден: {file_path}")
     else:
@@ -73,7 +82,7 @@ def _resolve_file_paths(project_path: Path, config: dict) -> dict:
 
     # config → bgen/schemas/epub.css
     file = epub_cfg.get("css-file")
-    file_path = (project_path / file).resolve() if file else SCHEMAS_DIR / "epub.css"
+    file_path = (project_path / file).resolve() if file else EPUB_CSS_FILE
     if not file_path.exists():
         missing.append(f"файл не найден: {file_path}")
     else:
@@ -415,5 +424,66 @@ def check(
         result = parse_files_with_rules(project_path, files, rules)
 
     return result, authors, title
+
+
+# ============================================================
+# Сборка
+# ============================================================
+
+def _build_pandoc_env(config: dict, for_chars_count: bool = False) -> dict:
+    env = os.environ.copy()
+    env["BGEN_TYPOGRAPHY"] = str(config.get("typography-file"))
+    if for_chars_count:
+        env["BGEN_INLINE_MODE"] = "none"
+    else:
+        env["BGEN_INLINE_MODE"] = str(config.get("txt").get("inline-mode"))
+    return env
+
+
+def build(
+        project_path: Path,
+        only: str | None = None,
+        warnings: list[str] | None = None,
+) -> list[tuple[str, Path]]:
+    """Собирает книгу в форматах из config.yaml (или из only).
+
+    warnings — внешний список: все предупреждения (включая накопленные
+    до BgenError) пишутся в него. Если None — создаётся локальный.
+    Возвращает список (формат, путь к файлу).
+    """
+    if warnings is None:
+        warnings = []
+
+    project_path = _validate_project_path(project_path)
+    config = _build_config(project_path)
+
+    formats = _resolve_formats(config, only)
+
+    output_dir = project_path / config.get("output-dir", "output")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    env = _build_pandoc_env(config)
+
+    results: list[tuple[str, Path]] = []
+    for fmt in formats:
+        if fmt == "fb2":
+            from .fb2.build import _build_fb2
+            output_path = _build_fb2(project_path, config, output_dir, env, warnings)
+            results.append((fmt, output_path))
+        elif fmt == "docx":
+            from .docx_build import _build_docx
+            output_path = _build_docx(project_path, config, output_dir, env, warnings)
+            results.append((fmt, output_path))
+        elif fmt == "epub":
+            from .epub_build import _build_epub
+            output_path = _build_epub(project_path, config, output_dir, env, warnings)
+            results.append((fmt, output_path))
+        elif fmt == "txt":
+            from .txt_build import _build_txt
+            output_path = _build_txt(project_path, config, output_dir, env, warnings)
+            results.append((fmt, output_path))
+        else:
+            raise BgenError(f"формат {fmt} ещё не реализован")
+    return results
 
 
