@@ -16,7 +16,6 @@ import subprocess
 from pathlib import Path
 
 from .common import FILTER_FILE, BgenError
-from .project import _get_body_files
 
 
 def _run_pandoc_txt(
@@ -78,6 +77,7 @@ def _make_card(config: dict) -> str:
 
 def _build_txt(
     project_path: Path,
+    md_files: list[Path],
     config: dict,
     output_dir: Path,
     env: dict,
@@ -94,8 +94,6 @@ def _build_txt(
     columns = txt_cfg.get("columns")
     wrap_mode = txt_cfg.get("wrap-mode")
     card = txt_cfg.get("card")
-
-    md_files = _get_body_files(project_path)
 
     _run_pandoc_txt(
         md_files, output_path, project_path, columns, wrap_mode, config, env, warnings,

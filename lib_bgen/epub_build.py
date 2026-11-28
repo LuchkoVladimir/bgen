@@ -23,7 +23,6 @@ except ImportError:
     raise ImportError("Требуется PyYAML. Установите: pip install pyyaml")
 
 from .common import FILTER_FILE, BgenError
-from .project import _get_body_files
 
 
 def _build_epub_metadata(
@@ -125,6 +124,7 @@ def _run_pandoc_epub(
 
 def _build_epub(
     project_path: Path,
+    md_files: list[Path],
     config: dict,
     output_dir: Path,
     env: dict,
@@ -138,7 +138,6 @@ def _build_epub(
     Возвращает путь к файлу. Бросает BgenError при ошибке Pandoc.
     """
     output_path = output_dir / f"{config.get("output-file-base")}.epub"
-    md_files = _get_body_files(project_path)
     keep_metadata = config.get("keep-metadata")
 
     with tempfile.TemporaryDirectory() as tmp:

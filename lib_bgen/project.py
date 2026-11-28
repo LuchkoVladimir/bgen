@@ -462,25 +462,27 @@ def build(
     output_dir = project_path / config.get("output-dir", "output")
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    md_files = _get_body_files(project_path)
+
     env = _build_pandoc_env(config)
 
     results: list[tuple[str, Path]] = []
     for fmt in formats:
         if fmt == "fb2":
             from .fb2.build import _build_fb2
-            output_path = _build_fb2(project_path, config, output_dir, env, warnings)
+            output_path = _build_fb2(project_path, md_files, config, output_dir, env, warnings)
             results.append((fmt, output_path))
         elif fmt == "docx":
             from .docx_build import _build_docx
-            output_path = _build_docx(project_path, config, output_dir, env, warnings)
+            output_path = _build_docx(project_path, md_files, config, output_dir, env, warnings)
             results.append((fmt, output_path))
         elif fmt == "epub":
             from .epub_build import _build_epub
-            output_path = _build_epub(project_path, config, output_dir, env, warnings)
+            output_path = _build_epub(project_path, md_files, config, output_dir, env, warnings)
             results.append((fmt, output_path))
         elif fmt == "txt":
             from .txt_build import _build_txt
-            output_path = _build_txt(project_path, config, output_dir, env, warnings)
+            output_path = _build_txt(project_path, md_files, config, output_dir, env, warnings)
             results.append((fmt, output_path))
         else:
             raise BgenError(f"формат {fmt} ещё не реализован")

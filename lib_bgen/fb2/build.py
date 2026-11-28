@@ -24,7 +24,6 @@ except ImportError:
     raise ImportError("Требуется PyYAML. Установите: pip install pyyaml")
 
 from ..common import FILTER_FILE, BgenError
-from ..project import _get_body_files
 from .postprocess import _postprocess_fb2
 from .validate import _validate_fb2
 
@@ -95,6 +94,7 @@ def _run_pandoc_fb2(
 
 def _build_fb2(
     project_path: Path,
+    md_files: list[Path],
     config: dict,
     output_dir: Path,
     env: dict,
@@ -109,7 +109,6 @@ def _build_fb2(
     """
     output_path = output_dir / f"{config.get("output-file-base")}.fb2"
     fb2_cfg = config.get("fb2")
-    md_files = _get_body_files(project_path)
     keep_metadata = config.get("keep-metadata")
 
     # print mode: pretty/toleft/src → wrap_mode

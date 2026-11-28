@@ -23,7 +23,6 @@ except ImportError:
     raise ImportError("Требуется PyYAML. Установите: pip install pyyaml")
 
 from .common import FILTER_FILE, BgenError
-from .project import _get_body_files
 
 
 def _build_docx_metadata(project_path: Path, config: dict, tmpdir: Path, warnings: list[str]) -> Path:
@@ -84,6 +83,7 @@ def _run_pandoc_docx(
 
 def _build_docx(
     project_path: Path,
+    md_files: list[Path],
     config: dict,
     output_dir: Path,
     env: dict,
@@ -96,7 +96,6 @@ def _build_docx(
     Возвращает путь к файлу. Бросает BgenError при ошибке Pandoc.
     """
     output_path = output_dir / f"{config.get("output-file-base")}.docx"
-    md_files = _get_body_files(project_path)
     keep_metadata = config.get("keep-metadata")
 
     with tempfile.TemporaryDirectory() as tmp:
