@@ -14,7 +14,9 @@ from pathlib import Path
 
 PROGRAM_NAME = "bgen"
 PROGRAM_TITLE = "BookGenerator"
-PROGRAM_VERSION = "2.6.2"
+PROGRAM_VERSION = "2.7.0"
+
+KNOWN_FORMATS = {"fb2", "docx", "epub", "txt"}
 
 BGEN_DIR = Path(__file__).resolve().parent.parent
 SCHEMAS_DIR = BGEN_DIR / "schemas"

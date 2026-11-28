@@ -37,9 +37,8 @@ from .common import (
     RULES_FILE,
     DOCX_REF_FILE,
     EPUB_CSS_FILE,
+    KNOWN_FORMATS,
     )
-
-KNOWN_FORMATS = {"fb2", "docx", "epub", "txt"}
 
 # ============================================================
 # Внешний интерфейс
@@ -75,23 +74,24 @@ def stat(project_path: Path) -> tuple[dict[Path, tuple[int, int]], list[str], st
     def _get_stat_from_md(config: dict, project_path: Path, files: list[Path]) -> dict[Path, tuple[int, int]]:
         """Считает объёмные метрики по списку .md файлов."""
         pandoc_env = _build_pandoc_env(config, for_chars_count = True)
-        converted_files: dict[Path, tuple[int, int]] = {}
+        files_stats: dict[Path, tuple[int, int]] = {}
         for file in files:
             stripped = _strip_markdown(project_path, file, pandoc_env)
             words = re.findall(r"[A-Za-zА-Яа-яЁё]+(?:-[A-Za-zА-Яа-яЁё]+)*", stripped)
-            converted_files[file.relative_to(project_path / "body")] = [len(words), len(stripped)]
-        return converted_files
+            files_stats[file.relative_to(project_path / "body")] = [len(words), len(stripped)]
+        return files_stats
 
     return _get_stat_from_md(config, project_path, md_files), authors, title
 
 
 def check(
         project_path: Path,
-        list_rules: bool,
-        rules_ids: str | None = None,
+        list_rules: bool = False,
+        rules_ids: list[int] | None = None,
 ) -> tuple[dict[int, tuple[str, str, list[tuple[int, str, str]]]], list[str], str]:
-    """Статистика текста проекта. Возвращает dict с результатами проверки по правилам, авторов и название.
-        result: dict[int, tuple[str, str, list[tuple[int, str, str]]]] = {
+    """Проверяет исходники проекта книги по предоставленным правилам.
+    Возвращает dict с результатами проверки по правилам, авторов и название.
+        dict[int, tuple[str, str, list[tuple[int, str, str]]]] = {
                 1: (
                     "Паттерн_1",
                     "Описание первого правила.\nВозможно и в несколько строк.",
@@ -111,18 +111,15 @@ def check(
                 ),
             }
     """
-
     project_path, md_files, config = _get_and_check_book_project_data(project_path)
-
     authors, title = _get_book_project_card(config)
 
     rules_file = Path(config.get("rules-file"))
-    if rules_ids is not None:
-        rules_values = [int(r.strip()) for r in rules_ids.split(",") if r.strip()]
-    else:
-        rules_values = None
+    rules = _parse_rules(rules_file)
 
-    rules = _parse_rules(rules_file, rules_values)
+    if rules_ids is not None:
+        allowed = set(rules_ids)
+        rules = {k: v for k, v in rules.items() if k in allowed}
 
     if list_rules:
         result = rules;
@@ -134,40 +131,24 @@ def check(
 
 def build(
         project_path: Path,
-        only: str | None = None,
+        only: list[str],
         warnings: list[str] | None = None,
 ) -> list[tuple[str, Path]]:
-    """Собирает книгу в форматах из config.yaml (или из only).
-
-    warnings — внешний список: все предупреждения (включая накопленные
-    до BgenError) пишутся в него. Если None — создаётся локальный.
-    Возвращает список (формат, путь к файлу).
-    """
+    """Собирает книгу в форматах из config.yaml или из only."""
     if warnings is None:
         warnings = []
 
-    def _resolve_formats(config: dict, only: str | None) -> list[str]:
-        """Определяет список форматов для сборки.
-
-        only — строка "fb2,epub" из CLI; переопределяет config.
-        Иначе — секции config с enabled: true.
-        """
+    def _resolve_formats(config: dict, only: list[str]) -> list[str]:
+        """Определяет список форматов для сборки."""
         if only:
-            formats = [f.strip() for f in only.split(",") if f.strip()]
-            unknown = [f for f in formats if f not in KNOWN_FORMATS]
-            if unknown:
-                raise BgenError(f"неизвестный формат: {', '.join(unknown)}")
-            return formats
-
+            return only
         formats = []
         for fmt in KNOWN_FORMATS:
             section = config.get(fmt)
             if section.get("enabled"):
                 formats.append(fmt)
-
         if not formats:
             raise BgenError("не включено ни одного формата (проверьте config.yaml)")
-
         return formats
 
     project_path, md_files, config = _get_and_check_book_project_data(project_path)
@@ -202,10 +183,8 @@ def build(
 # ============================================================
 
 def _get_and_check_book_project_data(project_path: Path) -> tuple[Path, list[Path], dict]:
+    """Валидация директории проекта книги и получение основных данных проекта."""
     project_path = project_path.resolve()
-    if not project_path.is_dir():
-        raise BgenError(f"{project_path} не директория")
-
     config = _build_config(project_path)
 
     body_dir = project_path / "body"
@@ -219,12 +198,14 @@ def _get_and_check_book_project_data(project_path: Path) -> tuple[Path, list[Pat
 
 
 def _get_book_project_card(config: dict) -> tuple[list[str], str]:
+    """Минимальные данные о проекте книги."""
     authors = config.get("metadata").get("author")
     title = config.get("metadata").get("title")
     return authors, title
 
 
 def _build_pandoc_env(config: dict, for_chars_count: bool = False) -> dict:
+    """Настройка окружения bgen для pandoc."""
     env = os.environ.copy()
     env["BGEN_TYPOGRAPHY"] = str(config.get("typography-file"))
     if for_chars_count:
@@ -237,17 +218,14 @@ def _build_pandoc_env(config: dict, for_chars_count: bool = False) -> dict:
 _RULE_RE = re.compile(r'^RULE:(\d+):"(.+)"$')
 
 
-def _parse_rules(path: Path, rules: list[int] | None) -> dict[int, tuple[str, str, list[tuple[int, str, str]]]]:
+def _parse_rules(path: Path) -> dict[int, tuple[str, str, list[tuple[int, str, str]]]]:
     """
     Читает файл с правилами вида:
-
         RULE:XXX:pattern
         Описание правила, возможно многострочное.
         Пустая строка или следующий RULE завершает описание.
-
     Возвращает dict:
         {номер: (pattern, описание, [])}
-
     Список находок (третий элемент) пуст - заполняется отдельным анализом.
     """
     result: dict[int, tuple[str, str, list[tuple[int, str, str]]]] = {}
@@ -278,10 +256,6 @@ def _parse_rules(path: Path, rules: list[int] | None) -> dict[int, tuple[str, st
 
     flush()  # последнее правило, если файл кончился без пустой строки
 
-    if rules is not None:
-        allowed = set(rules)
-        result = {k: v for k, v in result.items() if k in allowed}
-
     return result
 
 
@@ -292,8 +266,13 @@ def _parse_rules(path: Path, rules: list[int] | None) -> dict[int, tuple[str, st
 def _build_config(project_path: Path) -> dict:
     """Читает config.yaml, валидирует по схеме и заполняет дефолтами.
 
-    Возвращает полную валидную конфигу (или бросает BgenError).
+    Возвращает полную валидную построенную конфигу (или бросает BgenError).
     Дефолты берутся из config.schema.json (ключ default).
+    Резолвятся пути к файлам, указанные в конфиге.
+    Создаётся output-dir.
+
+    Если функция закончила свою работу, можно рассчитывать на то, что в конфиге всегда
+    если нужные корректные значения. Не нужно проверять их наличие во внутреннем коде.
     """
     config_path = project_path / "config.yaml"
     if not config_path.exists():
@@ -441,12 +420,7 @@ def _parse_files_with_rules(
     Проходит по files, ищет в каждой строке паттерны из rules и дозаполняет
     третий элемент каждого правила - список находок (line_no, file_name, line).
 
-    Параметры:
-        project_path - путь к проекту
-        files - список путей к файлам для анализа.
-        rules - результат _parse_rules(); мутируется (findings дополняются).
-
-    Возвращает тот же rules (для удобства цепочки).
+    Возвращает заполненный находками rules.
     """
     # Предкомпилируем регексы один раз, а не на каждую строку.
     compiled: dict[int, re.Pattern[str]] = {}
@@ -471,7 +445,6 @@ def _parse_files_with_rules(
                 hit = compiled[num].search(line) is not None
                 if hit:
                     findings.append((line_no, fname, line))
-
     return rules
 
 

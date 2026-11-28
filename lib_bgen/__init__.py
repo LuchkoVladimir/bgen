@@ -15,6 +15,7 @@ from .common import (
     PROGRAM_NAME,
     PROGRAM_TITLE,
     PROGRAM_VERSION,
+    KNOWN_FORMATS,
     )
 
 from .project import (

@@ -136,35 +136,73 @@ def main():
 
     sub = parser.add_subparsers(dest="command", metavar="КОМАНДА")
 
+    def _existing_dir(s: str) -> Path:
+        p = Path(s)
+        if not p.exists():
+            raise argparse.ArgumentTypeError(f"путь не существует: {s}")
+        if not p.is_dir():
+            raise argparse.ArgumentTypeError(f"не директория: {s}")
+        return p
+
+    def _book_formats(s: str) -> list[int]:
+        formats = [f.strip() for f in s.split(",") if f.strip()]
+        unknown = [f for f in formats if f not in lib_bgen.KNOWN_FORMATS]
+        if unknown:
+            raise argparse.ArgumentTypeError(
+                f"ожидается список из допустимых форматов {lib_bgen.KNOWN_FORMATS} через запятую, получено: {s!r}")
+        return formats
+
+    def _rule_ids(s: str) -> list[int]:
+        try:
+            return [int(x) for x in s.split(",") if x.strip()]
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"ожидается список чисел через запятую, получено: {s!r}")
+
     # build book
     p_build = sub.add_parser(
         "build",
         help="собрать книгу в форматах, включённых в config.yaml",
     )
-    p_build.add_argument("path", help="путь к проекту книги")
+    p_build.add_argument(
+        "path",
+        type=_existing_dir,
+        help="путь к проекту книги")
     p_build.add_argument(
         "--only",
         metavar="FMT[,FMT...]",
+        type=_book_formats,
+        default=[],
         help="собрать только указанные форматы (переопределяет config.yaml)",
     )
     p_build.set_defaults(func=cmd_build)
 
     # book statistics
     p_stat = sub.add_parser("stat", help="посчитать статистику текста")
-    p_stat.add_argument("path", help="путь к проекту книги")
+    p_stat.add_argument(
+        "path",
+        type=_existing_dir,
+        help="путь к проекту книги")
     p_stat.set_defaults(func=cmd_stat)
 
     # book project configuration
     p_cfg = sub.add_parser("cfg", help="показать построенную конфигурацию проекта")
-    p_cfg.add_argument("path", help="путь к проекту книги")
+    p_cfg.add_argument(
+        "path",
+        type=_existing_dir,
+        help="путь к проекту книги")
     p_cfg.set_defaults(func=cmd_cfg)
 
     # book src checks by given rules
     p_check = sub.add_parser("check", help="проверить исходники проекта по предоставленным правилам")
-    p_check.add_argument("path", help="путь к проекту книги")
+    p_check.add_argument(
+        "path",
+        type=_existing_dir,
+        help="путь к проекту книги")
     p_check.add_argument(
         "--only",
         metavar="RULE_ID[,RULE_ID...]",
+        type=_rule_ids,
+        default=None,
         help="проверить только на указанные правила",
     )
     p_check.add_argument(
